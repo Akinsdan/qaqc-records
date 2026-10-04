@@ -188,6 +188,7 @@ h2{font-size:18px;margin:18px 0 8px}
 <label>Email<input id="lem" type="email" autocomplete="username"></label>
 <label>Password<span class="pw"><input id="lpw" type="password" autocomplete="current-password"><button type="button" id="eye" aria-label="Show password"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
 <p class="err" id="lerr"></p><button class="btn" id="lgo" style="width:100%">Sign in</button><a href="#" id="lfp" style="text-align:center;font-size:13px;color:#1F7AE0;text-decoration:none;padding:4px">Forgot password?</a></div></div>
+<div id="rec"><div class="box"><div style="text-align:center"><h2 style="margin:0;color:var(--primary);font-size:20px">Set a new password</h2></div><label>New password<input id="rp1" type="password" autocomplete="new-password"></label><p class="err" id="rerr"></p><button class="btn" id="rgo" style="width:100%;text-align:center">Save password</button></div></div>
 <header>
   <div class="top">
     <div><h1>Concrete QA/QC</h1><small>Black Diamond Engineering Company</small></div>
@@ -760,6 +761,5 @@ document.getElementById("rgo").onclick=async()=>{const e=document.getElementById
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 SB.auth.getSession().then(({data})=>{if(data.session)enter(data.session)});
 </script>
-<div id="rec"><div class="box"><div style="text-align:center"><h2 style="margin:0;color:var(--primary);font-size:20px">Set a new password</h2></div><label>New password<input id="rp1" type="password" autocomplete="new-password"></label><p class="err" id="rerr"></p><button class="btn" id="rgo" style="width:100%;text-align:center">Save password</button></div></div>
 </body>
 </html>
