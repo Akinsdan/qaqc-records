@@ -165,21 +165,24 @@ h2{font-size:18px;margin:18px 0 8px}
 @keyframes pop{from{opacity:0;transform:scale(.8) translateY(8px)}to{opacity:1;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
 #auth .box{position:relative;grid-row:2;background:#fff;border-radius:16px;padding:22px;width:100%;max-width:360px;display:grid;gap:12px;box-shadow:0 18px 40px rgba(4,20,45,.35);animation:rise .6s .35s cubic-bezier(.2,.8,.2,1) both}
-#auth .box>div:first-child{text-align:center}#auth .err{text-align:center}#auth h2{margin:0;color:var(--primary);font-size:20px}#auth small{color:var(--muted)}
+#auth .box>div:first-child{text-align:center}#auth .err{text-align:center}#auth #lgo{text-align:center}#auth h2{margin:0;color:var(--primary);font-size:20px}#auth small{color:var(--muted)}
 #auth label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
 #auth input{padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;transition:border-color .2s,box-shadow .2s}
 #auth input:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,122,224,.2)}
+#auth .pw{position:relative;display:block}#auth .pw input{width:100%;box-sizing:border-box;padding-right:46px}#eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:0;padding:8px;cursor:pointer;color:#5b6b82;display:flex;border-radius:8px}#eye:hover{color:#1F7AE0}#eye.on{color:#1F7AE0}
 #auth .err{color:var(--warn);font-size:13px;min-height:16px;margin:0}
 @media (prefers-reduced-motion:reduce){#auth::before,#auth .cur,#auth .brand,#auth .box{animation:none}}
-#sync{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted);padding:6px 16px}
-#sync button{background:none;border:0;color:var(--accent);font-size:12px;cursor:pointer;padding:4px}
+#sync{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:#000;background:#fff;border-radius:12px;padding:5px 6px 5px 12px;margin:8px 0 10px;font-weight:500}
+#sync button{background:linear-gradient(135deg,#0B3A75,#1F7AE0);color:#fff;border:0;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;padding:7px 14px;box-shadow:0 2px 6px rgba(11,58,117,.3);transition:transform .15s,box-shadow .2s}
+#sync button:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(11,58,117,.35)}
+#sync button:active{transform:scale(.96)}
 </style>
 </head>
 <body>
 <div id="auth"><div class="brand"><svg viewBox="0 0 112 112" role="img" aria-label="Akinsdan Dev logo"><rect width="112" height="112" rx="26" fill="#fff"/><path fill-rule="evenodd" fill="#0B3A75" stroke="#0B3A75" stroke-width="3" stroke-linejoin="round" d="M56 14 L90 98 L72 98 L66 82 L46 82 L40 98 L22 98 Z M56 40 L63 64 L49 64 Z"/><rect class="cur" x="51" y="87" width="10" height="9" rx="1" fill="#1F7AE0"/></svg><div class="nm">Akinsdan <span>Dev</span></div></div>
 <div class="box"><div><h2>Concrete QA/QC</h2><small>Black Diamond Engineering Company</small></div>
 <label>Email<input id="lem" type="email" autocomplete="username"></label>
-<label>Password<input id="lpw" type="password" autocomplete="current-password"></label>
+<label>Password<span class="pw"><input id="lpw" type="password" autocomplete="current-password"><button type="button" id="eye" aria-label="Show password"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
 <p class="err" id="lerr"></p><button class="btn" id="lgo" style="width:100%">Sign in</button></div></div>
 <header>
   <div class="top">
@@ -693,6 +696,8 @@ document.getElementById("lgo").onclick=async()=>{
  enter(data.session)};
 document.getElementById("lpw").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("lgo").click()});
 document.getElementById("lout").onclick=async()=>{await SB.auth.signOut();location.reload()};
+const EYE_ON=`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>`,EYE_OFF=`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.9 10.9 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M1 1l22 22"/></svg>`;
+document.getElementById("eye").onclick=()=>{const i=document.getElementById("lpw"),b=document.getElementById("eye"),show=i.type==="password";i.type=show?"text":"password";b.innerHTML=show?EYE_OFF:EYE_ON;b.classList.toggle("on",show);b.setAttribute("aria-label",show?"Hide password":"Show password");i.focus()};
 SB.auth.getSession().then(({data})=>{if(data.session)enter(data.session)});
 </script>
 </body>
