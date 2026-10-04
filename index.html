@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Concrete QA/QC</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#EEF3FA; --card:#FFFFFF; --ink:#0F2540; --muted:#5B6F8A; --line:#D5DFEC;
+  --primary:#0B3A75; --primary-ink:#FFFFFF; --accent:#1F7AE0; --soft:#E3EEFC;
+  --ok:#1E8E5A; --warn:#C77A0A;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0B1626;--card:#122238;--ink:#E6EEF9;--muted:#93A6C0;--line:#223756;--primary:#2F7FE6;--primary-ink:#06101F;--accent:#5BA2F5;--soft:#17304F;--ok:#4CC38A;--warn:#E8A94A}
+}
+:root[data-theme="dark"]{--bg:#0B1626;--card:#122238;--ink:#E6EEF9;--muted:#93A6C0;--line:#223756;--primary:#2F7FE6;--primary-ink:#06101F;--accent:#5BA2F5;--soft:#17304F;--ok:#4CC38A;--warn:#E8A94A}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.5}
+h1,h2,h3{font-family:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",sans-serif;margin:0;letter-spacing:.2px}
+header{background:var(--primary);color:var(--primary-ink);padding:14px 16px 0;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;border-radius:0 0 18px 18px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.top h1{font-size:20px;font-weight:700}
+.top small{opacity:.8;display:block;font-size:12px}
+select{background:rgba(255,255,255,.14);color:inherit;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:6px 8px;font:inherit;font-size:13px}
+select option{color:#0F2540}
+nav{display:flex;gap:8px;overflow-x:auto;margin:12px -16px 0;padding:2px 16px 14px;scrollbar-width:none}
+nav button{flex:none;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:inherit;font:inherit;font-size:13.5px;font-weight:500;padding:8px 14px;border-radius:999px;cursor:pointer;transition:background .2s,transform .15s,box-shadow .2s}
+nav button svg{width:16px;height:16px;flex:none}
+nav button:active{transform:scale(.94)}
+nav button[aria-selected="true"]{background:var(--primary-ink);color:var(--primary);font-weight:600;border-color:var(--primary-ink);box-shadow:0 3px 10px rgba(0,0,0,.28)}
+nav button:focus-visible,.btn:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{max-width:980px;margin:0 auto;padding:16px}
+section{display:none}
+section.on{display:block}
+/* App-wide motion system */
+@keyframes pageIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes riseIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes softPop{0%{transform:scale(.97);opacity:.65}100%{transform:scale(1);opacity:1}}
+@keyframes navIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+@keyframes pulseLine{0%,100%{box-shadow:0 0 0 0 rgba(31,122,224,0)}50%{box-shadow:0 0 0 4px rgba(31,122,224,.10)}}
+section.page-enter{animation:pageIn .38s cubic-bezier(.22,.8,.25,1) both}
+section.page-enter .card,section.page-enter .mh,section.page-enter>h2,section.page-enter>.lead{animation:cardIn .42s cubic-bezier(.22,.8,.25,1) both;animation-delay:calc(var(--motion-i,0) * 45ms + 70ms)}
+section.page-enter .f label,section.page-enter .t tr,section.page-enter .row,section.page-enter .chain i,section.page-enter .chips span{animation:riseIn .32s ease both;animation-delay:calc(var(--motion-i,0) * 28ms + 110ms)}
+nav button{will-change:transform}
+nav button{animation:navIn .35s ease both}
+nav button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.16)}
+.btn{will-change:transform,box-shadow}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(11,58,117,.22)}
+.btn:active{transform:translateY(0) scale(.97)}
+.card{transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.card:hover{box-shadow:0 6px 18px rgba(11,58,117,.08)}
+.f input,.f select,.xc,.t input,textarea{transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}
+.f input:focus,.f select:focus,.xc:focus,.t input:focus,textarea:focus{box-shadow:0 0 0 3px rgba(31,122,224,.10);border-color:var(--accent)}
+.stat{transition:transform .2s ease,box-shadow .2s ease}
+.stat:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(11,58,117,.10)}
+.t tbody tr{transition:background .18s ease,transform .18s ease}
+.t tbody tr:hover{background:var(--soft)}
+.hero{animation:softPop .55s ease both}
+@media (prefers-reduced-motion:reduce){
+  section.page-enter,section.page-enter .card,section.page-enter .mh,section.page-enter>h2,section.page-enter>.lead,section.page-enter .f label,section.page-enter .t tr,section.page-enter .row,section.page-enter .chain i,section.page-enter .chips span,nav button,.hero{animation:none!important}
+  .btn,.card,.stat,.t tbody tr{transition:none!important}
+}
+
+.lead{color:var(--muted);margin:4px 0 14px}
+.grid{display:grid;gap:12px}
+.stats{grid-template-columns:repeat(2,1fr)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.stat b{display:block;font-size:26px;font-family:"IBM Plex Sans Condensed",sans-serif;color:var(--primary)}
+:root[data-theme="dark"] .stat b{color:var(--accent)}
+.stat span{color:var(--muted);font-size:13px}
+.actions{grid-template-columns:repeat(2,1fr);margin:14px 0}
+.btn{background:linear-gradient(135deg,var(--primary),var(--accent));color:var(--primary-ink);border:0;border-radius:12px;padding:12px;font:inherit;font-weight:600;cursor:pointer;text-align:left;box-shadow:0 2px 8px rgba(11,58,117,.25);transition:transform .15s,box-shadow .2s}
+.btn:active{transform:scale(.97)}
+.btn svg{width:18px;height:18px;vertical-align:-4px;margin-right:8px}
+.btn.alt{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:#B42318;color:#fff;box-shadow:0 2px 8px rgba(180,35,24,.22)}
+.btn.danger:hover{box-shadow:0 6px 16px rgba(180,35,24,.25)}
+h2{font-size:18px;margin:18px 0 8px}
+.chain{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 6px}
+.chain i{font-style:normal;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:13px}
+.chain u{text-decoration:none;color:var(--muted)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+.row small{color:var(--muted);display:block}
+.tag{align-self:center;font-size:12px;border-radius:99px;padding:2px 10px;border:1px solid var(--line);white-space:nowrap}
+.tag.ok{color:var(--ok);border-color:var(--ok)} .tag.warn{color:var(--warn);border-color:var(--warn)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
+.chips span{border:1px dashed var(--line);border-radius:6px;padding:3px 9px;font-size:13px;color:var(--ink);background:var(--bg)}
+.cols{display:grid;gap:12px}
+.note{color:var(--muted);font-size:13px;margin-top:14px}
+.hero{border-radius:12px;overflow:hidden;margin-bottom:14px;border:1px solid var(--line)}
+.hero svg{display:block;width:100%;height:auto}
+.hero{position:relative}
+.ov{position:absolute;left:14px;top:10px;color:#fff;z-index:1;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+.ov b{display:block;font-family:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;font-size:20px;letter-spacing:.5px}
+.ov span{font-size:10px;letter-spacing:1.6px;text-transform:uppercase;opacity:.9}
+.hero .cl{animation:drift linear infinite}
+.hero .drive{animation:drive 14s linear infinite}
+.hero .stream{animation:load 14s linear infinite}
+.hero .wh,.hero .swing,.hero .drop,.hero .fl{transform-box:fill-box;transform-origin:center}
+.hero .wh{animation:roll 14s linear infinite}
+.hero .swing{transform-box:view-box;animation:swing 4s ease-in-out infinite}
+.hero .drum{animation:drum .9s linear infinite}
+.hero .dash{animation:dash 1s linear infinite}
+.hero .drop{animation:pour 1.05s ease-in infinite}
+.hero .fl{animation:rise 9s ease-out infinite}
+.hero .glow{animation:glow 5s ease-in-out infinite}
+.hero .blink{animation:blink 1.4s steps(2,end) infinite}
+.hero .tw{animation:tw 3s ease-in-out infinite}
+.hero .bird{animation:fly linear infinite}
+.hero .puff,.hero .bob{transform-box:fill-box;transform-origin:center}
+.hero .puff{animation:puff 1.8s ease-out infinite}
+.hero .bob{animation:bob 1.6s ease-in-out infinite}
+.hero .win{animation:win 6s steps(1,end) infinite}
+@keyframes tw{0%,100%{opacity:.2}50%{opacity:1}}
+@keyframes fly{from{transform:translate(-60px,0)}to{transform:translate(780px,-14px)}}
+@keyframes puff{0%{transform:translate(0,0) scale(.5);opacity:.55}100%{transform:translate(-16px,-24px) scale(1.7);opacity:0}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+@keyframes win{0%{opacity:.9}50%{opacity:.15}}
+@keyframes drift{from{transform:translateX(-120px)}to{transform:translateX(820px)}}
+@keyframes drive{0%{transform:translateX(-200px);animation-timing-function:ease-out}21%,35%{transform:translateX(8px)}35%{animation-timing-function:ease-in}100%{transform:translateX(720px)}}
+@keyframes load{0%,21%{opacity:0}23%,33%{opacity:1}36%,100%{opacity:0}}
+@keyframes roll{0%{transform:rotate(0);animation-timing-function:ease-out}21%,35%{transform:rotate(1188deg)}35%{animation-timing-function:ease-in}100%{transform:rotate(5256deg)}}
+@keyframes drum{to{transform:translateX(24px)}}
+@keyframes dash{to{stroke-dashoffset:-40}}
+@keyframes swing{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+@keyframes pour{0%{transform:translateY(0);opacity:1}100%{transform:translateY(12px);opacity:0}}
+@keyframes rise{0%{opacity:0;transform:translateY(10px)}14%,86%{opacity:1;transform:none}100%{opacity:0}}
+@keyframes glow{0%,100%{opacity:.45}50%{opacity:.85}}
+@keyframes blink{0%{opacity:1}50%{opacity:.15}}
+@media (prefers-reduced-motion:reduce){.hero *{animation:none!important}}
+.mh{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+.mh svg{width:52px;height:52px;flex:none;padding:8px;border-radius:12px;background:var(--soft);color:var(--accent);border:1px solid var(--line)}
+.mh h2{margin:0}.mh .lead{margin:2px 0 0}
+.f{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:10px}
+.f label{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+.f input,.t input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:15px}
+.t input{padding:6px 8px;font-size:14px}
+.f input:focus-visible,.t input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.span2{grid-column:1/-1}
+.f select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:15px}
+@media print{header,.noprint,.mh{display:none!important}html:root:root:root{--bg:#fff;--card:#fff;--ink:#000;--muted:#444;--line:#bbb;--accent:#0B3A75}body{background:#fff}main{padding:0}}
+.xc{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px}
+.xc:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.t{width:100%;border-collapse:collapse;font-size:13px}
+.t th{text-align:left;color:var(--muted);font-weight:500;padding:6px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+.t td{padding:6px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+.t td:nth-child(3){min-width:84px}
+@media(min-width:720px){.stats{grid-template-columns:repeat(4,1fr)}.actions{grid-template-columns:repeat(4,1fr)}.cols{grid-template-columns:1fr 1fr}}
+.pdfw .t td,.pdfw .t th{white-space:normal}
+
+#auth{position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
+#auth .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;width:100%;max-width:360px;display:grid;gap:12px}
+#auth h2{margin:0;color:var(--primary)}#auth small{color:var(--muted)}
+#auth label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+#auth input{padding:10px;border:1px solid var(--line);border-radius:8px;font-size:16px}
+#auth .err{color:var(--warn);font-size:13px;min-height:16px;margin:0}
+#sync{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted);padding:6px 16px}
+#sync button{background:none;border:0;color:var(--accent);font-size:12px;cursor:pointer;padding:4px}
+</style>
+</head>
+<body>
+<div id="auth"><div class="box"><div><h2>Concrete QA/QC</h2><small>Black Diamond Engineering Company</small></div>
+<label>Email<input id="lem" type="email" autocomplete="username"></label>
+<label>Password<input id="lpw" type="password" autocomplete="current-password"></label>
+<p class="err" id="lerr"></p><button class="btn" id="lgo" style="width:100%">Sign in</button></div></div>
+<header>
+  <div class="top">
+    <div><h1>Concrete QA/QC</h1><small>Black Diamond Engineering Company</small></div>
+    <select id="proj" aria-label="Project"></select>
+  </div>
+  <nav role="tablist" id="nav"></nav>
+  <div id="sync"><span id="syncs"></span><button id="lout">Sign out</button></div>
+</header>
+<main>
+  <section id="dashboard" class="on">
+    <div class="hero" role="img" aria-label="Animated illustration of a batching plant, a concrete mixer truck driving by and a building rising under a crane">
+    <div class="ov"><b>Concrete QA/QC</b><span>Batch · Pour · Test · Report</span></div>
+    <svg viewBox="0 0 700 240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#061A38"/><stop offset=".55" stop-color="#0B3A75"/><stop offset="1" stop-color="#5FA6F0"/></linearGradient>
+        <linearGradient id="rd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16345F"/><stop offset="1" stop-color="#0A1E3D"/></linearGradient>
+        <radialGradient id="sun"><stop offset="0" stop-color="#FFE3A3"/><stop offset="1" stop-color="#FFE3A3" stop-opacity="0"/></radialGradient>
+        <pattern id="hz" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="12" fill="#F2A93B"/><rect x="6" width="6" height="12" fill="#12315E"/></pattern>
+        <clipPath id="dc"><ellipse cx="55" cy="18" rx="48" ry="22"/></clipPath>
+      </defs>
+      <rect width="700" height="240" fill="url(#sky)"/>
+      <circle class="glow" cx="360" cy="150" r="70" fill="url(#sun)"/>
+      <g fill="#fff" opacity=".2"><g class="cl" style="animation-duration:55s"><ellipse cx="0" cy="58" rx="50" ry="10"/><ellipse cx="22" cy="52" rx="28" ry="9"/></g><g class="cl" style="animation-duration:80s;animation-delay:-30s"><ellipse cx="0" cy="92" rx="38" ry="8"/><ellipse cx="-16" cy="88" rx="22" ry="7"/></g></g>
+      <g fill="#fff"><circle class="tw" style="animation-delay:1.0s" cx="347" cy="56" r="1.3"/><circle class="tw" style="animation-delay:0.1s" cx="690" cy="74" r="0.8"/><circle class="tw" style="animation-delay:1.1s" cx="299" cy="70" r="0.8"/><circle class="tw" style="animation-delay:0.1s" cx="492" cy="59" r="0.8"/><circle class="tw" style="animation-delay:0.7s" cx="552" cy="60" r="0.8"/><circle class="tw" style="animation-delay:2.5s" cx="333" cy="34" r="1.3"/><circle class="tw" style="animation-delay:1.9s" cx="301" cy="79" r="1.3"/><circle class="tw" style="animation-delay:1.2s" cx="383" cy="11" r="1.3"/><circle class="tw" style="animation-delay:2.6s" cx="418" cy="59" r="0.8"/><circle class="tw" style="animation-delay:1.6s" cx="562" cy="45" r="1.3"/><circle class="tw" style="animation-delay:2.4s" cx="362" cy="19" r="1.3"/><circle class="tw" style="animation-delay:1.7s" cx="366" cy="53" r="0.8"/><circle class="tw" style="animation-delay:1.6s" cx="302" cy="78" r="0.8"/><circle class="tw" style="animation-delay:1.9s" cx="524" cy="74" r="1"/><circle class="tw" style="animation-delay:2.3s" cx="508" cy="80" r="1"/><circle class="tw" style="animation-delay:1.1s" cx="397" cy="29" r="1.3"/></g>
+      <g fill="none" stroke="#E3EEFC" stroke-width="1.6" stroke-linecap="round"><g class="bird" style="animation-duration:22s"><path d="M0 70q5-6 10 0q5-6 10 0"/></g><g class="bird" style="animation-duration:30s;animation-delay:-12s"><path d="M0 52q4-5 8 0q4-5 8 0"/></g><g class="bird" style="animation-duration:26s;animation-delay:-5s"><path d="M0 84q3-4 7 0q3-4 7 0"/></g></g>
+      <g fill="#0B3A75" opacity=".55"><rect x="0" y="150" width="34" height="58"/><rect x="30" y="128" width="26" height="80"/><rect x="70" y="160" width="40" height="48"/><rect x="120" y="140" width="30" height="68"/><rect x="190" y="152" width="24" height="56"/><rect x="250" y="130" width="34" height="78"/><rect x="300" y="156" width="28" height="52"/><rect x="350" y="138" width="36" height="70"/><rect x="410" y="150" width="30" height="58"/><rect x="660" y="140" width="40" height="68"/></g>
+      <g fill="#FFD98A" opacity=".9"><rect class="win" style="animation-delay:1.8s" x="35" y="149" width="4" height="5"/><rect class="win" style="animation-delay:2.7s" x="35" y="175" width="4" height="5"/><rect class="win" style="animation-delay:3.1s" x="44" y="136" width="4" height="5"/><rect class="win" style="animation-delay:2.1s" x="44" y="149" width="4" height="5"/><rect class="win" style="animation-delay:5.8s" x="44" y="175" width="4" height="5"/><rect class="win" style="animation-delay:3.3s" x="44" y="188" width="4" height="5"/><rect class="win" style="animation-delay:2.1s" x="255" y="164" width="4" height="5"/><rect class="win" style="animation-delay:0.6s" x="264" y="138" width="4" height="5"/><rect class="win" style="animation-delay:4.2s" x="264" y="151" width="4" height="5"/><rect class="win" style="animation-delay:4.4s" x="264" y="164" width="4" height="5"/><rect class="win" style="animation-delay:3.5s" x="264" y="177" width="4" height="5"/><rect class="win" style="animation-delay:4.3s" x="273" y="138" width="4" height="5"/><rect class="win" style="animation-delay:5.6s" x="273" y="164" width="4" height="5"/><rect class="win" style="animation-delay:3.7s" x="273" y="177" width="4" height="5"/><rect class="win" style="animation-delay:1.7s" x="355" y="146" width="4" height="5"/><rect class="win" style="animation-delay:5.5s" x="355" y="172" width="4" height="5"/><rect class="win" style="animation-delay:2.4s" x="355" y="198" width="4" height="5"/><rect class="win" style="animation-delay:0.8s" x="364" y="146" width="4" height="5"/><rect class="win" style="animation-delay:3.3s" x="364" y="159" width="4" height="5"/><rect class="win" style="animation-delay:1.4s" x="373" y="146" width="4" height="5"/><rect class="win" style="animation-delay:0.9s" x="373" y="159" width="4" height="5"/><rect class="win" style="animation-delay:5.0s" x="373" y="185" width="4" height="5"/><rect class="win" style="animation-delay:1.7s" x="373" y="198" width="4" height="5"/><rect class="win" style="animation-delay:3.2s" x="125" y="148" width="4" height="5"/><rect class="win" style="animation-delay:0.8s" x="125" y="174" width="4" height="5"/><rect class="win" style="animation-delay:2.4s" x="665" y="148" width="4" height="5"/><rect class="win" style="animation-delay:1.1s" x="665" y="174" width="4" height="5"/><rect class="win" style="animation-delay:0.7s" x="674" y="148" width="4" height="5"/><rect class="win" style="animation-delay:3.4s" x="674" y="174" width="4" height="5"/><rect class="win" style="animation-delay:1.2s" x="683" y="174" width="4" height="5"/><rect class="win" style="animation-delay:3.8s" x="683" y="187" width="4" height="5"/><rect class="win" style="animation-delay:2.9s" x="692" y="187" width="4" height="5"/></g>
+      <g fill="#E3EEFC"><rect x="40" y="95" width="46" height="75" rx="3"/><rect x="96" y="112" width="46" height="58" rx="3"/><polygon points="40,170 86,170 72,190 54,190"/><polygon points="96,170 142,170 128,190 110,190"/></g>
+      <g stroke="#9CC3F2" stroke-width="3"><line x1="50" y1="190" x2="50" y2="208"/><line x1="76" y1="190" x2="76" y2="208"/><line x1="106" y1="190" x2="106" y2="208"/><line x1="132" y1="190" x2="132" y2="208"/></g>
+      <g stroke="#9CC3F2" stroke-width="2"><line x1="40" y1="112" x2="86" y2="112"/><line x1="40" y1="132" x2="86" y2="132"/><line x1="40" y1="152" x2="86" y2="152"/><line x1="96" y1="128" x2="142" y2="128"/><line x1="96" y1="146" x2="142" y2="146"/></g>
+      <g stroke="#6FA8EA" stroke-width="1.5"><line x1="148" y1="96" x2="148" y2="190"/><line x1="148" y1="102" x2="156" y2="102"/><line x1="148" y1="110" x2="156" y2="110"/><line x1="148" y1="118" x2="156" y2="118"/><line x1="148" y1="126" x2="156" y2="126"/><line x1="148" y1="134" x2="156" y2="134"/><line x1="148" y1="142" x2="156" y2="142"/><line x1="148" y1="150" x2="156" y2="150"/><line x1="148" y1="158" x2="156" y2="158"/><line x1="148" y1="166" x2="156" y2="166"/><line x1="148" y1="174" x2="156" y2="174"/><line x1="148" y1="182" x2="156" y2="182"/><line x1="156" y1="96" x2="156" y2="190"/></g>
+      <line x1="142" y1="140" x2="204" y2="172" stroke="#E3EEFC" stroke-width="7"/><line class="dash" x1="142" y1="140" x2="204" y2="172" stroke="#12315E" stroke-width="2" stroke-dasharray="6 9"/><rect x="198" y="170" width="18" height="10" fill="#9CC3F2"/>
+      <rect x="168" y="182" width="32" height="26" fill="#CFE0F7"/><rect x="173" y="187" width="12" height="9" fill="#FFD98A" class="win"/><rect x="166" y="179" width="36" height="4" fill="#6FA8EA"/>
+      <g stroke="#0B3A75" stroke-width="1" fill="#8DB6EA"><rect x="236" y="198" width="10" height="10"/><rect x="247" y="198" width="10" height="10"/><rect x="241" y="188" width="10" height="10"/></g>
+      <polygon points="268,208 272,190 282,190 286,208" fill="#C9D6E8"/><rect x="270" y="186" width="14" height="4" fill="#9CB3D3"/>
+      <rect x="52" y="82" width="22" height="13" fill="#9CC3F2"/>
+      <g class="stream" fill="#F2A93B"><rect class="drop" x="63" y="190" width="4" height="8"/><rect class="drop" style="animation-delay:.35s" x="63" y="190" width="4" height="8"/><rect class="drop" style="animation-delay:.7s" x="63" y="190" width="4" height="8"/></g>
+      <g><g class="fl" style="animation-delay:0.0s"><rect x="522" y="170" width="120" height="5" fill="#9CC3F2"/><rect x="524" y="175" width="4" height="31" fill="#6FA8EA"/><rect x="562" y="175" width="4" height="31" fill="#6FA8EA"/><rect x="600" y="175" width="4" height="31" fill="#6FA8EA"/><rect x="636" y="175" width="4" height="31" fill="#6FA8EA"/></g><g class="fl" style="animation-delay:1.2s"><rect x="522" y="134" width="120" height="5" fill="#9CC3F2"/><rect x="524" y="139" width="4" height="31" fill="#6FA8EA"/><rect x="562" y="139" width="4" height="31" fill="#6FA8EA"/><rect x="600" y="139" width="4" height="31" fill="#6FA8EA"/><rect x="636" y="139" width="4" height="31" fill="#6FA8EA"/></g><g class="fl" style="animation-delay:2.4s"><rect x="522" y="98" width="120" height="5" fill="#9CC3F2"/><rect x="524" y="103" width="4" height="31" fill="#6FA8EA"/><rect x="562" y="103" width="4" height="31" fill="#6FA8EA"/><rect x="600" y="103" width="4" height="31" fill="#6FA8EA"/><rect x="636" y="103" width="4" height="31" fill="#6FA8EA"/></g><g class="fl" style="animation-delay:3.5999999999999996s"><rect x="522" y="62" width="120" height="5" fill="#9CC3F2"/><line x1="525" y1="62" x2="525" y2="47" stroke="#C77A0A" stroke-width="2"/><line x1="563" y1="62" x2="563" y2="47" stroke="#C77A0A" stroke-width="2"/><line x1="601" y1="62" x2="601" y2="47" stroke="#C77A0A" stroke-width="2"/><line x1="637" y1="62" x2="637" y2="47" stroke="#C77A0A" stroke-width="2"/><rect x="524" y="67" width="4" height="31" fill="#6FA8EA"/><rect x="562" y="67" width="4" height="31" fill="#6FA8EA"/><rect x="600" y="67" width="4" height="31" fill="#6FA8EA"/><rect x="636" y="67" width="4" height="31" fill="#6FA8EA"/></g></g>
+      <g stroke="#E6F0FD" stroke-width="3" fill="none"><path d="M474 20 L474 20 L486 44 L474 68 L486 92 L474 116 L486 140 L474 164 L486 188 L474 212" stroke-width="2"/><line x1="474" y1="20" x2="474" y2="208"/><line x1="486" y1="20" x2="486" y2="208"/><line x1="400" y1="26" x2="660" y2="26" stroke-width="5"/><line x1="480" y1="8" x2="400" y2="26" stroke-width="2"/><line x1="480" y1="8" x2="650" y2="26" stroke-width="2"/></g>
+      <rect x="396" y="22" width="22" height="14" fill="#E6F0FD"/><rect class="blink" x="477" y="2" width="6" height="6" rx="3" fill="#FF6B5A"/>
+      <g class="swing" style="transform-origin:610px 28px"><line x1="610" y1="28" x2="610" y2="82" stroke="#E6F0FD" stroke-width="2"/><rect x="600" y="82" width="20" height="14" fill="#F2A93B"/><rect x="606" y="96" width="8" height="6" fill="#C77A0A"/></g>
+      <g fill="url(#hz)"><rect x="312" y="196" width="64" height="7"/></g><g stroke="#12315E" stroke-width="2"><line x1="318" y1="203" x2="318" y2="208"/><line x1="370" y1="203" x2="370" y2="208"/></g>
+      <g><polygon points="392,208 397,192 402,208" fill="#FF7A45"/><rect x="394" y="199" width="6" height="2.5" fill="#fff"/><polygon points="410,208 415,192 420,208" fill="#FF7A45"/><rect x="412" y="199" width="6" height="2.5" fill="#fff"/></g>
+      <g transform="translate(440,184)"><g class="bob"><circle cx="5" cy="4" r="4" fill="#F5C7A0"/><path d="M0 3a5 5 0 0 1 10 0z" fill="#FFD34D"/><rect x="1" y="8" width="8" height="12" rx="1" fill="#F2A93B"/><rect x="2" y="20" width="2.5" height="4" fill="#12315E"/><rect x="5.5" y="20" width="2.5" height="4" fill="#12315E"/><rect x="9" y="11" width="5" height="7" fill="#fff"/></g></g>
+      <rect y="208" width="700" height="32" fill="url(#rd)"/>
+      <line class="dash" x1="0" y1="226" x2="700" y2="226" stroke="#E6F0FD" stroke-width="3" stroke-dasharray="22 18" opacity=".6"/>
+      <g transform="translate(0,176)"><g class="drive">
+        <rect x="0" y="30" width="150" height="8" fill="#12315E"/><rect x="104" y="-4" width="3" height="12" fill="#3B4A63"/><g fill="#DDE7F5"><circle class="puff" cx="105" cy="-6" r="3"/><circle class="puff" style="animation-delay:.9s" cx="105" cy="-6" r="3"/></g>
+        <ellipse cx="55" cy="18" rx="48" ry="22" fill="#F2A93B"/>
+        <g clip-path="url(#dc)"><g class="drum" stroke="#fff" stroke-width="4" opacity=".55"><line x1="-24" y1="44" x2="-2" y2="-4"/><line x1="0" y1="44" x2="22" y2="-4"/><line x1="24" y1="44" x2="46" y2="-4"/><line x1="48" y1="44" x2="70" y2="-4"/><line x1="72" y1="44" x2="94" y2="-4"/><line x1="96" y1="44" x2="118" y2="-4"/><line x1="120" y1="44" x2="142" y2="-4"/><line x1="144" y1="44" x2="166" y2="-4"/></g></g>
+        <path d="M110 38V8H134L150 24V38Z" fill="#fff"/><rect x="120" y="13" width="12" height="10" fill="#2E86E8"/>
+        <polygon points="150,30 215,16 215,46" fill="#FFE3A3" opacity=".22"/><circle cx="149" cy="30" r="4" fill="#FFE3A3"/><text x="113" y="35" font-size="7" font-weight="700" fill="#0B3A75" font-family="Arial,sans-serif">BD</text>
+        <g fill="#0A1A33" stroke="#fff" stroke-width="3"><g class="wh"><circle cx="22" cy="40" r="10"/><line x1="22" y1="33" x2="22" y2="47" stroke-width="2"/></g><g class="wh"><circle cx="58" cy="40" r="10"/><line x1="58" y1="33" x2="58" y2="47" stroke-width="2"/></g><g class="wh"><circle cx="124" cy="40" r="10"/><line x1="124" y1="33" x2="124" y2="47" stroke-width="2"/></g></g>
+      </g></g>
+    </svg></div>
+    <p class="lead">Today at a glance for the selected project.</p>
+    <div class="grid stats">
+      <div class="card stat"><b id="ds1">0</b><span>Pours today</span></div>
+      <div class="card stat"><b id="ds2">0</b><span>Trucks received</span></div>
+      <div class="card stat"><b id="ds3">0 m³</b><span>Concrete placed</span></div>
+      <div class="card stat"><b id="ds4">0</b><span>Cube tests due</span></div>
+    </div>
+    <div class="grid actions">
+      <button class="btn" data-go="batching">New batch record</button>
+      <button class="btn" data-go="casting">New pour</button>
+      <button class="btn alt" data-go="testing">Log a test</button>
+      <button class="btn alt" data-go="reports">Daily report</button>
+    </div>
+    <h2>How records connect</h2>
+    <div class="chain"><i>Project</i><u>›</u><i>Pour</i><u>›</u><i>Batch</i><u>›</u><i>Truck</i><u>›</u><i>Samples</i><u>›</u><i>Results</i></div>
+    <p class="note" style="margin-top:0">Open any pour to see its batches, trucks, samples and results together.</p>
+    <div class="cols">
+      <div>
+        <h2>Today's pours</h2>
+        <div class="card">
+          <div id="dpl"></div>
+        </div>
+      </div>
+      <div>
+        <h2>Tests due (next 7 days)</h2>
+        <div class="card">
+          <div id="dtl"></div>
+        </div>
+      </div>
+    </div>
+  <h2>Backup and restore</h2><div class="card" id="bk"></div>
+  </section>
+</main>
+<script>
+const M={
+ batching:["Batching plant","Approved mixes, batch tickets and material control at the plant.",
+  ["Approved mix","Batch ticket","Truck no.","Driver's name","Moisture correction","Actual vs theoretical","Weighing tolerances","Water/cement ratio","6 cubes per batch"],
+  ["Batch no.","Time","Truck","Driver","Volume (m³)","Cement (kg)","Water (L)","w/c","Status"],
+  "Start with the approved mix and w/c calculator, then the batch ticket log."],
+ casting:["Casting on site","Pour and delivery records for each element cast.",
+  ["Pour location","Element","Grade","Truck / mixer","Driver's name","Arrival time","Discharge start–end","Slump","Concrete temperature","Weather"],
+  ["Pour","Element","Grade","Trucks","Volume (m³)","Date","Status"],
+  "One pour record collects every truck delivered to that element."],
+ testing:["Testing","Fresh and hardened concrete results, with pass/fail against spec.",
+  ["Sample ID","Casting date","Cubes per batch (6)","7-day strength","14-day strength","28-day strength","Strength (MPa)","% of specified","Pass / fail"],
+  ["Sample","Pour","Age","Mean (MPa)","Target (MPa)","% of spec","Result"],
+  "Sample IDs generate automatically and link back to the pour and truck."],
+ records:["Records","Search every pour, batch, truck and test in one place.",
+  ["Project","Date","Pour","Grade","Truck","Sample ID"],
+  ["Date","Pour","Grade","Batches","Samples","Results"],
+  "Filters narrow the list; opening a row shows the full chain."],
+ reports:["Reports","Reports built from saved records, ready to print or save as PDF.",
+  ["Daily concrete pour report","Weekly summary","Non-conformance log","Strength results summary"],
+  ["Report","Date range","Project","Created","Status"],
+  "The daily pour report comes first: project, pours, batches, slump, temperature, cubes, remarks and sign-off."],
+ projects:["Projects","Projects, specifications and grades used on each job.",
+  ["Project name","Client","Location","Specified grades","Strength acceptance rule","Team"],
+  ["Project","Client","Active pours","Open tests"],
+  "Each project sets the specification that tests are judged against."]
+};
+const ic=p=>`<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const I={
+ dashboard:ic('<rect x="8" y="8" width="14" height="14" rx="2"/><rect x="26" y="8" width="14" height="14" rx="2"/><rect x="8" y="26" width="14" height="14" rx="2"/><rect x="26" y="26" width="14" height="14" rx="2"/>'),
+ projects:ic('<rect x="12" y="8" width="24" height="34"/><path d="M18 16h4M26 16h4M18 24h4M26 24h4M18 32h4M26 32h4"/>'),
+ batching:ic('<rect x="12" y="6" width="24" height="24"/><path d="M12 30l8 12h8l8-12M18 14h12"/>'),
+ casting:ic('<ellipse cx="18" cy="22" rx="12" ry="8"/><path d="M4 34h38V26l-6-4h-6v12M10 34"/><circle cx="12" cy="38" r="3"/><circle cx="34" cy="38" r="3"/>'),
+ testing:ic('<path d="M24 6l16 8v18L24 42 8 32V14zM8 14l16 8 16-8M24 22v20"/>'),
+ records:ic('<path d="M6 12h14l4 4h18v24H6z"/>'),
+ reports:ic('<path d="M12 6h18l8 8v28H12zM30 6v8h8M18 24h14M18 30h14M18 36h8"/>')
+};
+const inp=(id,l,v,x="")=>`<label${x}>${l}<input id="${id}" type="number" step="any" inputmode="decimal" value="${v}"></label>`;
+const BH=`<div class="mh">${I.batching}<div><h2>Batching plant</h2><p class="lead">Approved mix, batch targets and batch tickets.</p></div></div>
+<div class="card"><h3>Approved mix (per m³)</h3><div class="f">
+<label class="span2">Mix reference<input id="qmx" value="MX-30-A"></label>
+${inp("qc","Cement (kg)",380)}${inp("qw","Water (L)",175)}${inp("qs","Sand (kg)",700)}${inp("qg","Coarse aggregate (kg)",1100)}${inp("qa","Admixture (kg)",3)}${inp("qmw","Max w/c",0.5)}
+</div></div>
+<div class="card" style="margin-top:12px"><h3>New batch</h3><div class="f">
+${inp("qv","Volume (m³)",6)}<label>Truck no.<input id="qtk" placeholder="TM-07"></label><label>Departure time<input id="qdpt" type="time"></label>
+<label class="span2">Driver's name<input id="qdr" placeholder="Full name"></label>
+${inp("qms","Sand moisture (%)",3)}${inp("qmc","Coarse moisture (%)",1)}
+</div>
+<div style="overflow-x:auto;margin-top:12px"><table class="t"><thead><tr><th>Material</th><th>Target</th><th>Actual</th><th>Deviation</th></tr></thead><tbody id="qb"></tbody></table></div>
+<p id="qwc" class="note"></p><p id="qe" class="note" style="color:var(--warn);margin-top:4px"></p>
+<button class="btn" id="qsv" style="width:100%;margin-top:6px">Save batch ticket</button>
+<p class="note">Targets include moisture correction. Cube samples are taken per pour, not per batch.</p></div>
+<h2>Batch log</h2><div class="card" style="overflow-x:auto" id="qlg"></div>`;
+function initBatch(){
+ const $=i=>document.getElementById(i),n=i=>parseFloat($(i).value)||0;
+ const mats=[["Cement","c"],["Water","w"],["Sand","s"],["Coarse","g"],["Admixture","a"]],tol={c:1,w:1,s:2,g:2,a:3};
+ const esc=s=>String(s??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+ $("qb").innerHTML=mats.map(m=>`<tr><td>${m[0]}</td><td id="t_${m[1]}"></td><td><input type="number" step="any" inputmode="decimal" data-a="${m[1]}" aria-label="Actual ${m[0]}"></td><td id="d_${m[1]}"></td></tr>`).join("");
+ const A=k=>parseFloat(document.querySelector(`[data-a=${k}]`).value);
+ let L=[],pend=null,editNo=null,bn=0;try{L=JSON.parse(localStorage.getItem("qaqc_batches")||"[]");bn=+localStorage.getItem("qaqc_bn")||0}catch(e){}
+ function calc(){
+  const V=n("qv"),ms=n("qms"),mc=n("qmc"),T={c:n("qc")*V,s:n("qs")*V*(1+ms/100),g:n("qg")*V*(1+mc/100),w:(n("qw")-n("qs")*ms/100-n("qg")*mc/100)*V,a:n("qa")*V};
+  let all=true,ok=true;for(const m of mats){const k=m[1],d=$("d_"+k),x=A(k);$("t_"+k).textContent=T[k].toFixed(1);if(isNaN(x)||!T[k]){all=false;d.textContent="–";d.style.color="";continue}const p=(x-T[k])/T[k]*100,g=Math.abs(p)<=tol[k];if(!g)ok=false;d.textContent=(p>0?"+":"")+p.toFixed(1)+"% "+(g?"OK":"Out");d.style.color=g?"var(--ok)":"var(--warn)"}
+  const mw=n("qmw");let t="Design w/c "+(n("qw")/(n("qc")||1)).toFixed(2)+" (max "+mw.toFixed(2)+")",ew=null;if([A("c"),A("w"),A("s"),A("g")].every(x=>x>0)){ew=(A("w")+A("s")*ms/(100+ms)+A("g")*mc/(100+mc))/A("c");t+=" · Actual w/c "+ew.toFixed(2)+(ew<=mw?" OK":" over max")}$("qwc").textContent=t;return{all,ok:ok&&(ew===null||ew<=mw),ew}}
+ function clearForm(){document.querySelectorAll("[data-a]").forEach(i=>i.value="");["qtk","qdr","qdpt"].forEach(i=>$(i).value="");$("qmx").value="";$("qsv").textContent="Save batch";delete $("qsv").dataset.edit;editNo=null;$("qe").textContent="";calc()}
+ function loadEdit(no){const r=ld("qaqc_batches").find(x=>x.no===no);if(!r)return;editNo=no;$("qtk").value=r.tk||"";$("qdr").value=r.dr||"";$("qdpt").value=r.dp||"";$("qmx").value=r.mx||"";$("qv").value=r.v||"";$("qsv").textContent="Update batch";$("qsv").dataset.edit=no;$("qe").textContent="Editing "+no+" — update the fields and save.";document.getElementById("batching").scrollIntoView({behavior:"smooth",block:"start"})}
+ function draw(){L=ld("qaqc_batches");const V=L.filter(r=>(r.p||"")===cur());$("qlg").innerHTML=V.length?`<table class="t"><thead><tr><th>Batch</th><th>Truck</th><th>Driver</th><th>m³</th><th>Departure</th><th>w/c</th><th>Result</th><th></th></tr></thead><tbody>`+V.slice().reverse().map(r=>`<tr><td>${r.no}</td><td>${esc(r.tk)}</td><td>${esc(r.dr)}</td><td>${r.v}</td><td>${r.dp||"–"}</td><td>${r.ew||"–"}</td><td style="color:${r.st==="Pass"?"var(--ok)":r.st==="Check"?"var(--warn)":"var(--muted)"}">${r.st}</td><td style="display:flex;gap:4px"><button class="btn alt" data-edit-batch="${r.no}" style="padding:4px 10px;font-size:12px">Edit</button><button class="btn alt" data-x="${r.no}" style="padding:4px 10px;font-size:12px">${pend===r.no?"Confirm delete":"Delete"}</button></td></tr>`).join("")+"</tbody></table>"+abtn(pend):'<p class="note" style="margin:0">No batches yet. Save a batch ticket and it appears here.</p>'}
+ redraws.push(draw);$("qlg").onclick=e=>{const eb=e.target.closest("[data-edit-batch]");if(eb){loadEdit(eb.dataset.editBatch);return}const b=e.target.closest("button"),k=b&&b.dataset.x;if(!k)return;if(pend!==k){pend=k;draw();return}L=k==="all"?[]:L.filter(r=>r.no!==k);pend=null;sv("qaqc_batches",L);draw()};
+ $("batching").addEventListener("input",calc);
+ $("qsv").onclick=()=>{const tk=$("qtk").value.trim(),dr=$("qdr").value.trim();if(!tk||!dr){$("qe").textContent="Enter the truck number and driver's name.";return}$("qe").textContent="";const r=calc();L=ld("qaqc_batches");const isEdit=$("qsv").dataset.edit;if(isEdit){const rec=L.find(x=>x.no===isEdit);if(rec){Object.assign(rec,{tk,dr,v:n("qv"),dp:$("qdpt").value,mx:$("qmx").value});const DD=ld("qaqc_deliveries");DD.forEach(x=>{if(x.b===isEdit){x.tk=tk;x.dr=dr}});sv("qaqc_deliveries",DD);sv("qaqc_batches",L);clearForm();draw();rfAll();}return}bn=Math.max(bn,...L.map(r=>+r.no.slice(2)))+1;pend=null;try{localStorage.setItem("qaqc_bn",bn)}catch(e){}L.push({no:"B-"+String(bn).padStart(3,"0"),p:cur(),mx:$("qmx").value,tk,dr,v:n("qv"),dp:$("qdpt").value,ew:r.ew?r.ew.toFixed(2):"",st:!r.all?"No actuals":r.ok?"Pass":"Check",t:new Date().toISOString()});sv("qaqc_batches",L);clearForm();draw();rfAll()};
+ calc();draw()}
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ld=k=>{try{return JSON.parse(localStorage.getItem(k)||"[]")}catch(e){return[]}};
+const SB=window.supabase.createClient("https://ygcnynnchgqmfwvmlxjz.supabase.co","sb_publishable_oQw1qef_Bqo59AmVN58iIA_KZSOho64");
+const KEYS=["qaqc_projects","qaqc_batches","qaqc_deliveries","qaqc_tests"];
+const setSync=t=>{const e=document.getElementById("syncs");if(e)e.textContent=t};
+const pushT={};
+const push=(k,v)=>{clearTimeout(pushT[k]);setSync("Saving…");pushT[k]=setTimeout(async()=>{const {error}=await SB.from("app_data").upsert({key:k,value:v,updated_at:new Date().toISOString()});setSync(error?"⚠ Not saved online – check connection":"✓ Saved online")},400)};
+const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}if(KEYS.includes(k))push(k,v)};
+const hooks={},redraws=[];
+const rfAll=()=>{redraws.forEach(f=>f());Object.values(hooks).forEach(f=>f())};
+const sel=(id,l,o,x="")=>`<label${x}>${l}<select id="${id}">${o}</select></label>`;
+const txt=(id,l,x="",v="")=>`<label${x}>${l}<input id="${id}" value="${v}"></label>`;
+const head=(k,t,d)=>`<div class="mh">${I[k]}<div><h2>${t}</h2><p class="lead">${d}</p></div></div>`;
+const CH=head("casting","Casting on site","Log each truck delivered and placed, linked to its batch.")+`<div class="card"><div class="f" style="margin-top:0">`+sel("cb","Batch and truck","",' class="span2"')+txt("cl","Pour location",' class="span2"')+sel("ce","Element",["Slab","Beam","Column","Wall","Foundation","Other"].map(x=>`<option>${x}</option>`).join(""))+txt("cg","Grade","","C30/37")+inp("cv","Volume (m³)","")+`<label>Arrival time<input id="cr" type="time"></label>`+inp("cs","Slump (mm)","")+inp("ct","Concrete temp (°C)","")+`</div><p id="cm" class="note" style="color:var(--warn)"></p><button class="btn" id="csv" style="width:100%">Save delivery</button></div><h2>Casting log</h2><div class="card" style="overflow-x:auto" id="clg"></div>`;
+const TH=head("testing","Testing","Cube results for each pour: 6 cubes per pour location, tested at 7, 14 and 28 days.")+`<div class="card"><div class="f" style="margin-top:0">`+sel("xb","Pour (location)","",' class="span2"')+sel("xa","Age (days)",["7","14","28"].map(x=>`<option>${x}</option>`).join(""))+inp("xs","Specified strength (MPa)",37)+`</div><p id="xd" class="note"></p><p style="font-size:12px;color:var(--muted);margin:10px 0 4px">Cube strengths (MPa)</p><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">`+[1,2,3,4,5,6].map(i=>`<input class="xc" type="number" step="any" inputmode="decimal" aria-label="Cube ${i}" placeholder="Cube ${i}">`).join("")+`</div><p id="xr" class="note"></p><p id="xm" class="note" style="color:var(--warn);margin-top:4px"></p><button class="btn" id="xsv" style="width:100%">Save test result</button></div><h2>Test log</h2><div class="card" style="overflow-x:auto" id="xlg"></div>`;
+const PH=head("projects","Projects","Set up each job. The project chosen at the top is saved with every batch, delivery and test.")+`<div class="card"><div class="f" style="margin-top:0">`+txt("pn","Project name",' class="span2"')+txt("pc","Client")+txt("pl","Location")+txt("pg","Specified grades (e.g. C30/37, C35/45)",' class="span2"')+txt("pt","Team (engineers, inspectors)",' class="span2"')+txt("pr","Strength acceptance rule (optional)",' class="span2"')+`</div><p id="pm" class="note" style="color:var(--warn)"></p><button class="btn" id="psv" style="width:100%">Save project</button></div><h2>Project list</h2><div class="card" style="overflow-x:auto" id="plg"></div>`;
+const cur=()=>{const v=document.getElementById("proj").value;return v==="No project yet"?"":v};
+const X={batching:BH,casting:CH,testing:TH,projects:PH};
+const dbtn=(k,p)=>`<button class="btn alt" data-x="${k}" style="padding:4px 10px;font-size:12px">${p===k?"Confirm delete":"Delete"}</button>`;
+const abtn=p=>`<button class="btn alt" data-x="all" style="margin-top:10px;font-size:13px">${p==="all"?"Tap again to clear all":"Clear all"}</button>`;
+function initCasting(){
+ const $=i=>document.getElementById(i);let L=ld("qaqc_deliveries"),pend=null,editNo=null;const bs=()=>ld("qaqc_batches").filter(r=>(r.p||"")===cur());
+ const fill=()=>{const r=bs().find(x=>x.no===$("cb").value);if(r&&!$("cv").value)$('cv').value=r.v};
+ hooks.casting=()=>{const b=bs();$("cb").innerHTML=b.length?b.map(r=>`<option value="${r.no}">${r.no} · ${esc(r.tk)} · ${esc(r.dr)}</option>`).join(""):'<option value="">No batches yet. Save one in Batching.</option>';fill()};
+ $("cb").onchange=()=>{$("cv").value="";fill()};
+ const reset=()=>{["cl","cg","cv","cr","cs","ct"].forEach(i=>$(i).value="");$("ce").selectedIndex=0;$("csv").textContent="Save delivery";delete $("csv").dataset.edit;editNo=null;$("cm").textContent=""};
+ const loadEdit=no=>{const r=ld("qaqc_deliveries").find(x=>x.no===no);if(!r)return;editNo=no;$("cb").value=r.b||"";$("cl").value=r.loc||"";$("ce").value=r.el||"Slab";$("cg").value=r.gr||"";$("cv").value=r.v||"";$("cr").value=r.ar||"";$("cs").value=r.sl||"";$("ct").value=r.tp||"";$("csv").textContent="Update delivery";$("csv").dataset.edit=no;$("cm").textContent="Editing "+no+" — update the fields and save.";document.getElementById("casting").scrollIntoView({behavior:"smooth",block:"start"})};
+ const draw=()=>{L=ld("qaqc_deliveries");const V=L.filter(r=>(r.p||"")===cur());$("clg").innerHTML=V.length?`<table class="t"><thead><tr><th>Ref</th><th>Location</th><th>Batch</th><th>Truck</th><th>Driver</th><th>m³</th><th>Slump</th><th>Temp</th><th></th></tr></thead><tbody>`+V.slice().reverse().map(r=>`<tr><td>${r.no}</td><td>${esc(r.loc)} (${r.el})</td><td>${r.b}</td><td>${esc(r.tk)}</td><td>${esc(r.dr)}</td><td>${esc(r.v)}</td><td>${esc(r.sl)}</td><td>${esc(r.tp)}</td><td style="display:flex;gap:4px"><button class="btn alt" data-edit-delivery="${r.no}" style="padding:4px 10px;font-size:12px">Edit</button><button class="btn alt" data-x="${r.no}" style="padding:4px 10px;font-size:12px">${pend===r.no?"Confirm delete":"Delete"}</button></td></tr>`).join("")+"</tbody></table>"+abtn(pend):'<p class="note" style="margin:0">No deliveries yet. Save one and it appears here.</p>'};
+ redraws.push(draw);$("clg").onclick=e=>{const eb=e.target.closest("[data-edit-delivery]");if(eb){loadEdit(eb.dataset.editDelivery);return}const b=e.target.closest("button"),k=b&&b.dataset.x;if(!k)return;if(pend!==k){pend=k;draw();return}L=k==="all"?[]:L.filter(r=>r.no!==k);pend=null;sv("qaqc_deliveries",L);draw();rfAll()};
+ $("csv").onclick=()=>{const b=bs().find(x=>x.no===$("cb").value),loc=$("cl").value.trim();if(!b||!loc){$("cm").textContent=!b?"Choose a batch. Save one in Batching first.":"Enter the pour location.";return}L=ld("qaqc_deliveries");const isEdit=$("csv").dataset.edit;if(isEdit){const rec=L.find(x=>x.no===isEdit);if(rec){const ok0=pk(rec);Object.assign(rec,{b:b.no,tk:b.tk,dr:b.dr,loc,el:$("ce").value,gr:$("cg").value,v:$("cv").value,ar:$("cr").value,sl:$("cs").value,tp:$("ct").value});sv("qaqc_deliveries",L);rekey(ok0,rec);reset();draw();rfAll()}return}$("cm").textContent="";pend=null;L.push({no:"D-"+String(Math.max(0,...L.map(r=>+r.no.slice(2)))+1).padStart(3,"0"),p:cur(),b:b.no,tk:b.tk,dr:b.dr,loc,el:$("ce").value,gr:$("cg").value,v:$("cv").value,ar:$("cr").value,sl:$("cs").value,tp:$("ct").value,t:new Date().toISOString()});sv("qaqc_deliveries",L);reset();fill();draw();rfAll()};
+ draw()}
+
+function initTesting(){
+ const $=i=>document.getElementById(i);let L=ld("qaqc_tests"),pend=null;
+ const vals=()=>[...document.querySelectorAll(".xc")].map(i=>parseFloat(i.value)).filter(x=>x>0);
+ const used=k=>L.filter(r=>testKey(r)===k).reduce((s,r)=>s+r.v.length,0);
+ const info=()=>{const p=pours().find(x=>x.k===$("xb").value);$("xd").textContent=p?"Cubes tested: "+used(p.k)+" of 6 · Due: "+[7,14,28].map(d=>d+"-day "+new Date(+new Date(p.date+"T12:00")+d*864e5).toLocaleDateString(undefined,{day:"numeric",month:"short"})).join(" · "):""};
+ const calc=()=>{const v=vals(),sp=parseFloat($("xs").value)||0;if(!v.length){$("xr").textContent="";return}const m=v.reduce((a,c)=>a+c,0)/v.length;$("xr").textContent="Mean "+m.toFixed(1)+" MPa"+(sp?" · "+(m/sp*100).toFixed(0)+"% of specified":"")};
+ const reset=()=>{$("xa").value="7";$("xs").value="37";document.querySelectorAll(".xc").forEach(i=>i.value="");$("xsv").textContent="Save test result";delete $("xsv").dataset.edit;$("xm").textContent="";calc()};
+ const loadEdit=no=>{const r=ld("qaqc_tests").find(x=>x.no===no);if(!r)return;$("xb").value=testKey(r);$("xa").value=String(r.age);$("xs").value=r.sp||"";document.querySelectorAll(".xc").forEach((i,k)=>i.value=r.v[k]??"");$("xsv").textContent="Update test result";$("xsv").dataset.edit=no;$("xm").textContent="Editing "+no+" — update the fields and save.";info();calc();document.getElementById("testing").scrollIntoView({behavior:"smooth",block:"start"})};
+ hooks.testing=()=>{const o=pours(),keep=$("xb").value;$("xb").innerHTML=o.length?o.map(r=>`<option value="${esc(r.k)}"${r.k===keep?" selected":""}>${esc(r.loc)} (${esc(r.el)}) · ${r.date}</option>`).join(""):'<option value="">No deliveries yet. Log one in Casting.</option>';info()};
+ const bt='style="padding:4px 10px;font-size:12px"';
+ const draw=()=>{L=ld("qaqc_tests");const V=L.filter(r=>(r.p||"")===cur());$("xlg").innerHTML=V.length?`<table class="t"><thead><tr><th>Ref</th><th>Pour</th><th>Age</th><th>Cubes</th><th>Mean</th><th>% spec</th><th>Result</th><th></th></tr></thead><tbody>`+V.slice().reverse().map(r=>`<tr><td>${r.no}</td><td>${esc(r.pl||r.b)}</td><td>${r.age}-day</td><td>${r.v.length}</td><td>${r.m.toFixed(1)}</td><td>${r.sp?(r.m/r.sp*100).toFixed(0)+"%":"–"}</td><td style="color:${r.st==="Pass"?"var(--ok)":r.st==="Below spec"?"var(--warn)":"var(--muted)"}">${r.st}</td><td style="display:flex;gap:4px"><button class="btn alt" data-edit-test="${r.no}" ${bt}>Edit</button><button class="btn alt" data-x="${r.no}" ${bt}>${pend===r.no?"Confirm delete":"Delete"}</button></td></tr>`).join("")+"</tbody></table>"+abtn(pend):'<p class="note" style="margin:0">No results yet. Save a test and it appears here.</p>'};
+ redraws.push(draw);$("xlg").onclick=e=>{const eb=e.target.closest("[data-edit-test]");if(eb){loadEdit(eb.dataset.editTest);return}const b=e.target.closest("button"),k=b&&b.dataset.x;if(!k)return;if(pend!==k){pend=k;draw();return}L=k==="all"?[]:L.filter(r=>r.no!==k);pend=null;sv("qaqc_tests",L);info();draw();rfAll()};
+ $("xb").onchange=info;$("testing").addEventListener("input",calc);
+ $("xsv").onclick=()=>{const k=$("xb").value,pp=pours().find(x=>x.k===k),v=vals(),sp=parseFloat($("xs").value)||0,e=$("xm");
+  if(!pp)return e.textContent="Choose a pour. Log a delivery in Casting first.";
+  if(!v.length)return e.textContent="Enter at least one cube strength.";
+  L=ld("qaqc_tests");const ie=$("xsv").dataset.edit,rec=ie&&L.find(x=>x.no===ie);
+  const other=L.filter(x=>testKey(x)===k&&x.no!==ie).reduce((s,x)=>s+x.v.length,0);
+  if(other+v.length>6)return e.textContent="Each pour has 6 cubes. "+other+" are already tested by other results.";
+  const m=v.reduce((a,c)=>a+c,0)/v.length,age=+$("xa").value,st=age===28?(m>=sp?"Pass":"Below spec"):"Early age",pl=pp.loc+" ("+pp.el+")";
+  e.textContent="";
+  if(ie){if(rec)Object.assign(rec,{pr:k,pl,age,v,m,sp,st})}
+  else L.push({no:"T-"+String(Math.max(0,...L.map(x=>+x.no.slice(2)))+1).padStart(3,"0"),p:cur(),pr:k,pl,age,v,m,sp,st,t:new Date().toISOString()});
+  pend=null;sv("qaqc_tests",L);reset();info();draw();rfAll()};
+ draw()}
+
+function initProjects(){
+ const $=i=>document.getElementById(i);let L=ld("qaqc_projects"),pend=null;
+ const fillSel=()=>{let c="";try{c=localStorage.getItem("qaqc_proj")||""}catch(e){}$("proj").innerHTML=L.length?L.map(r=>`<option${r.n===c?" selected":""}>${esc(r.n)}</option>`).join(""):"<option>No project yet</option>"};
+ const rf=()=>{redraws.forEach(f=>f());Object.values(hooks).forEach(f=>f())};
+ $("proj").onchange=()=>{try{localStorage.setItem("qaqc_proj",$("proj").value)}catch(e){}rf()};
+ const draw=()=>{$("plg").innerHTML=L.length?`<table class="t"><thead><tr><th>Project</th><th>Client</th><th>Location</th><th>Grades</th><th></th></tr></thead><tbody>`+L.map(r=>`<tr><td>${esc(r.n)}</td><td>${esc(r.c)}</td><td>${esc(r.l)}</td><td>${esc(r.g)}</td><td style="display:flex;gap:4px"><button class="btn alt" data-pedit="${esc(r.n)}" style="padding:4px 10px;font-size:12px">Edit</button><button class="btn alt" data-x="${esc(r.n)}" style="padding:4px 10px;font-size:12px">${pend===r.n?"Confirm delete":"Delete"}</button></td></tr>`).join("")+"</tbody></table>":'<p class="note" style="margin:0">No projects yet. Save your first project above.</p>'};
+ $("plg").onclick=e=>{const pe=e.target.closest("[data-pedit]");if(pe){const r=L.find(x=>x.n===pe.dataset.pedit);if(r){$("pn").value=r.n;$("pc").value=r.c;$("pl").value=r.l;$("pg").value=r.g;$("pt").value=r.t;$("pr").value=r.a;$("psv").dataset.edit=r.n;$("psv").textContent="Update project";}}const b=e.target.closest("button"),k=b&&b.dataset.x;if(!k)return;if(pend!==k){pend=k;draw();return}L=L.filter(r=>r.n!==k);pend=null;sv("qaqc_projects",L);fillSel();draw();rf()};
+ $("psv").onclick=()=>{const n=$("pn").value.trim(),e=$("pm");
+  if(!n){e.textContent="Enter the project name.";return}
+  if(!$("psv").dataset.edit && L.some(r=>r.n.toLowerCase()===n.toLowerCase())){e.textContent="A project with that name already exists.";return}
+  e.textContent="";if($("psv").dataset.edit){const old=$("psv").dataset.edit,i=L.findIndex(r=>r.n===old);if(i>=0){L[i]={n,c:$("pc").value.trim(),l:$("pl").value.trim(),g:$("pg").value.trim(),t:$("pt").value.trim(),a:$("pr").value.trim()};
+   ["qaqc_batches","qaqc_deliveries","qaqc_tests"].forEach(k=>{const R=ld(k);R.forEach(x=>{if(x.p===old)x.p=n});sv(k,R)});sv("qaqc_projects",L);delete $("psv").dataset.edit;$("psv").textContent="Save project";try{localStorage.setItem("qaqc_proj",n)}catch(x){}["pn","pc","pl","pg","pt","pr"].forEach(i=>$(i).value="");fillSel();draw();rf();return}}L.push({n,c:$("pc").value.trim(),l:$("pl").value.trim(),g:$("pg").value.trim(),t:$("pt").value.trim(),a:$("pr").value.trim()});
+  sv("qaqc_projects",L);try{localStorage.setItem("qaqc_proj",n)}catch(x){}
+  ["pn","pc","pl","pg","pt","pr"].forEach(i=>$(i).value="");pend=null;fillSel();draw();rf()};
+ window.refreshProjects=()=>{L=ld("qaqc_projects");fillSel();draw()};
+ fillSel();draw()}
+const dk=t=>new Date(t).toLocaleDateString("en-CA");
+const P=k=>ld(k).filter(r=>(r.p||"")===cur());
+const pk=d=>(d.loc||"").trim().toLowerCase()+"|"+d.el+"|"+dk(d.t);
+const pours=()=>{const g={};P("qaqc_deliveries").forEach(d=>{const k=pk(d);(g[k]=g[k]||{k,loc:d.loc,el:d.el,date:dk(d.t),t:d.t,ds:[]}).ds.push(d)});return Object.values(g).sort((a,b)=>a.t<b.t?1:-1)};
+const testKey=t=>t.pr||(()=>{const d=ld("qaqc_deliveries").find(x=>x.b===t.b);return d?pk(d):"b:"+t.b})();
+const rekey=(old,d)=>{const nw=pk(d);if(old===nw||ld("qaqc_deliveries").some(x=>pk(x)===old))return;const T=ld("qaqc_tests");T.forEach(x=>{if(testKey(x)===old){x.pr=nw;x.pl=d.loc+" ("+d.el+")"}});sv("qaqc_tests",T)};
+const tg=s=>s==="Pass"?"ok":(s==="Check"||s==="Below spec")?"warn":"";
+const RH=head("records","Records","Search every batch with its deliveries and test results.")+`<div class="card"><div class="f" style="margin-top:0">`+txt("rq","Search (batch, truck, driver, location, grade)",' class="span2"')+`<label>Date<input id="rd" type="date"></label></div></div><div id="re"></div><div id="rl" style="margin-top:12px"></div>`;
+const RP=head("reports","Reports","Built from the saved records of the selected project.")+`<div class="card noprint"><div class="f" style="margin-top:0">`+sel("rt","Report",'<option value="d">Daily concrete pour report</option><option value="w">Weekly summary</option><option value="m">Monthly summary</option>',' class="span2"')+`<label>Date (weekly: first of 7 days · monthly: any day in the month)<input id="rv" type="date"></label><label>Prepared by<input id="rb"></label><label class="span2">Remarks<textarea id="rk" rows="3" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit"></textarea></label></div><button class="btn" id="rp" style="width:100%;margin-top:10px">Download PDF</button><p id="rpm" class="note" style="color:var(--warn);margin-bottom:0"></p></div><div class="card" id="rc" style="margin-top:12px;overflow-x:auto"></div>`;
+X.records=RH;X.reports=RP;
+function initRecords(){
+ const $=i=>document.getElementById(i);
+ window.openQaqcEdit=(t,n)=>{ed={t,no:n};go("records");form();setTimeout(()=>$("re").scrollIntoView({behavior:"smooth",block:"start"}),0)};
+ const eb=(t,n,l="Edit")=>`<button class="btn alt" data-e="${t}|${n}" style="padding:4px 10px;font-size:12px">${l}</button>`;
+ const KEY={b:"qaqc_batches",d:"qaqc_deliveries",t:"qaqc_tests"},NAME={b:"batch",d:"delivery",t:"test result"};
+ const FLD={
+  b:[["tk","Truck no.","text"],["dr","Driver's name","text"],["v","Volume (m³)","number"],["dp","Departure time","time"],["mx","Mix reference","text"]],
+  d:[["loc","Pour location","text"],["el","Element","select",["Slab","Beam","Column","Wall","Foundation","Other"]],["gr","Grade","text"],["v","Volume (m³)","number"],["ar","Arrival time","time"],["sl","Slump (mm)","number"],["tp","Concrete temp (°C)","number"]],
+  t:[["age","Age (days)","select",["7","14","28"]],["sp","Specified strength (MPa)","number"],["vs","Cube strengths (MPa), separated by commas","text"]]};
+ let ed=null;
+ const form=()=>{const box=$("re");if(!ed){box.innerHTML="";return}
+  const rec=ld(KEY[ed.t]).find(x=>x.no===ed.no);if(!rec){ed=null;box.innerHTML="";return}
+  const val=f=>f[0]==="vs"?rec.v.join(", "):(rec[f[0]]??"");
+  box.innerHTML=`<div class="card" style="margin-top:12px;border-color:var(--accent)"><h3>Edit ${NAME[ed.t]} ${ed.no}</h3><div class="f">`+FLD[ed.t].map(f=>`<label${f[0]==="loc"||f[0]==="mx"||f[0]==="vs"?' class="span2"':""}>${f[1]}`+(f[2]==="select"?`<select data-f="${f[0]}">${f[3].map(o=>`<option${String(val(f))===o?" selected":""}>${o}</option>`).join("")}</select>`:`<input data-f="${f[0]}" type="${f[2]}"${f[2]==="number"?' step="any" inputmode="decimal"':""} value="${esc(val(f))}">`)+"</label>").join("")+`</div><p id="rem" class="note" style="color:var(--warn)"></p><div style="display:flex;gap:8px"><button class="btn" id="rxs" style="flex:1">Save changes</button><button class="btn alt" id="rxc" style="flex:1">Cancel</button></div></div>`;
+  $("rxc").onclick=()=>{ed=null;form()};$("rxs").onclick=save};
+ const save=()=>{const L=ld(KEY[ed.t]),rec=L.find(x=>x.no===ed.no),g=f=>$("re").querySelector(`[data-f="${f}"]`).value.trim(),e=$("rem");
+  if(ed.t==="b"){if(!g("tk")||!g("dr")){e.textContent="Truck number and driver's name are required.";return}
+   Object.assign(rec,{tk:g("tk"),dr:g("dr"),v:parseFloat(g("v"))||0,dp:g("dp"),mx:g("mx")});
+   const D=ld(KEY.d);D.forEach(x=>{if(x.b===rec.no){x.tk=rec.tk;x.dr=rec.dr}});sv(KEY.d,D)}
+  else if(ed.t==="d"){if(!g("loc")){e.textContent="Enter the pour location.";return}
+   {const ok0=pk(rec);Object.assign(rec,{loc:g("loc"),el:g("el"),gr:g("gr"),v:g("v"),ar:g("ar"),sl:g("sl"),tp:g("tp")});sv(KEY.d,L);rekey(ok0,rec)}}
+  else{const v=g("vs").split(/[\s,;]+/).map(parseFloat).filter(x=>x>0);if(!v.length){e.textContent="Enter at least one cube strength.";return}
+   const o=L.filter(x=>testKey(x)===testKey(rec)&&x.no!==rec.no).reduce((a,x)=>a+x.v.length,0);
+   if(o+v.length>6){e.textContent="Each pour has 6 cubes. "+o+" are used by other results.";return}
+   const sp=parseFloat(g("sp"))||0,age=+g("age"),m=v.reduce((a,c)=>a+c,0)/v.length;
+   Object.assign(rec,{age,sp,v,m,st:age===28?(m>=sp?"Pass":"Below spec"):"Early age"})}
+  sv(KEY[ed.t],L);ed=null;rfAll()};
+ const draw=()=>{const q=$("rq").value.trim().toLowerCase(),d=$("rd").value,T=P("qaqc_tests"),Bt=P("qaqc_batches"),G=pours(),known=new Set(G.map(g=>g.k));
+  T.forEach(x=>{const k=testKey(x);if(!known.has(k)){known.add(k);G.push({k,loc:x.pl||"Batch "+x.b,el:"",date:"",ds:[]})}});
+  const bm={};Bt.forEach(b=>bm[b.no]=b);
+  const rows=G.map(g=>({g,ts:T.filter(x=>testKey(x)===g.k)})).filter(({g})=>(!d||g.date===d)&&(!q||[g.loc,g.el,...g.ds.map(x=>x.b+" "+x.tk+" "+x.dr+" "+x.gr)].join(" ").toLowerCase().includes(q)));
+  const dl=new Set(P("qaqc_deliveries").map(x=>x.b)),und=Bt.filter(b=>!dl.has(b.no)&&(!d||dk(b.t)===d)&&(!q||[b.no,b.tk,b.dr].join(" ").toLowerCase().includes(q)));
+  const vol=a=>a.reduce((s,x)=>s+(parseFloat(x.v)||0),0).toFixed(0);
+  let o=rows.map(({g,ts})=>`<div class="card" style="margin-bottom:10px"><div class="row" style="padding-top:0"><div><b>${esc(g.loc)}${g.el?" ("+esc(g.el)+")":""}</b><small>${g.date||"–"} · ${g.ds.length} truck${g.ds.length===1?"":"s"} · ${vol(g.ds)} m³ · cubes tested ${ts.reduce((s,x)=>s+x.v.length,0)} of 6</small></div></div>`+g.ds.map(x=>{const b=bm[x.b];return `<div class="row"><div>${x.no} · ${x.b} · ${esc(x.tk)} · ${esc(x.dr)}<small>${esc(x.gr)} · slump ${esc(x.sl)||"–"} · ${esc(x.tp)||"–"} °C · arrival ${x.ar||"–"}${b?" · w/c "+(b.ew||"–"):""}${b&&b.dp?" · departed "+b.dp:""}</small></div><span style="display:flex;gap:6px;align-items:center">${b?`<span class="tag ${tg(b.st)}">${b.st}</span>`:""}${eb("d",x.no)}${bm[x.b]?eb("b",x.b,"Batch"):""}</span></div>`}).join("")+(ts.length?ts.map(x=>`<div class="row"><div>${x.age}-day · mean ${x.m.toFixed(1)} MPa<small>${x.v.length} cubes${x.sp?" · "+(x.m/x.sp*100).toFixed(0)+"% of specified":""}</small></div><span style="display:flex;gap:6px;align-items:center"><span class="tag ${tg(x.st)}">${x.st}</span>${eb("t",x.no)}</span></div>`).join(""):'<div class="row"><small>No test results yet</small></div>')+"</div>").join("");
+  if(und.length)o+=`<div class="card"><b>Batches not yet delivered</b>`+und.map(b=>`<div class="row"><div>${b.no} · ${esc(b.tk)} · ${esc(b.dr)}<small>${b.v} m³ · w/c ${b.ew||"–"}</small></div><span style="display:flex;gap:6px;align-items:center"><span class="tag ${tg(b.st)}">${b.st}</span>${eb("b",b.no)}</span></div>`).join("")+"</div>";
+  $("rl").innerHTML=o||'<div class="card"><p class="note" style="margin:0">No records match.</p></div>'};
+ hooks.records=()=>{draw();form()};$("records").addEventListener("input",e=>{if(!e.target.closest("#re"))draw()});
+ $("rl").onclick=e=>{const b=e.target.closest("[data-e]");if(!b)return;const [t,n]=b.dataset.e.split("|");ed={t,no:n};form();$("re").scrollIntoView({behavior:"smooth",block:"start"})};draw()}
+const LU="data:image/jpeg;base64,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";
+let LOGO={u:LU,w:700,h:159,d:atob(LU.split(",")[1])};
+function makePDF(blocks){
+ const W=595,H=842,M=40,pages=[];let c,y,im=null;
+ const np=()=>{c=[];pages.push(c);y=H-M};np();
+ const en=s=>String(s).replace(/[()\\]/g,"\\$&").replace(/[^\x20-\x7e]/g,ch=>({"³":"\\263","°":"\\260","·":"\\267","–":"\\226","—":"\\227","×":"\\327","…":"\\205"}[ch]||"?"));
+ const tx=(s,x,yy,sz,b)=>c.push(`BT /F${b?2:1} ${sz} Tf ${x} ${yy} Td (${en(s)}) Tj ET`);
+ const wrap=(s,w,sz)=>{const m=Math.max(4,Math.floor(w/(sz*.5))),o=[];let l="";for(const wd of String(s).split(/\s+/)){if((l+" "+wd).trim().length>m&&l){o.push(l);l=wd}else l=(l+" "+wd).trim()}o.push(l);return o};
+ const need=n=>{if(y-n<M)np()};
+ for(const b of blocks){
+  if(b.t==="title"){need(30);tx(b.s,M,y-14,16,1);y-=24}
+  else if(b.t==="sub"){need(14);tx(b.s,M,y-9,9);y-=14}
+  else if(b.t==="h"){need(26);y-=8;tx(b.s,M,y-11,11,1);y-=18}
+  else if(b.t==="img"){const hh=44,ww=b.w/b.h*hh;need(hh+8);c.push(`q ${ww.toFixed(1)} 0 0 ${hh} ${M} ${y-hh} cm /Im1 Do Q`);y-=hh+8;im=b}
+  else if(b.t==="sp")y-=22;
+  else if(b.t==="p"){for(const l of wrap(b.s,W-2*M,9)){need(13);tx(l,M,y-9,9);y-=12}y-=4}
+  else if(b.t==="tbl"&&b.rows.length){const n=Math.max(...b.rows.map(r=>r.c.length)),cw=(W-2*M)/n;
+   for(const r of b.rows){const L=r.c.map(s=>wrap(s,cw-6,9)),k=Math.max(...L.map(a=>a.length));need(k*11+6);
+    L.forEach((a,i)=>a.forEach((l,j)=>tx(l,M+i*cw+3,y-9-j*11,9,r.hd)));
+    y-=k*11+6;c.push(`0.75 G 0.5 w ${M} ${y+2} m ${W-M} ${y+2} l S`)}y-=4}
+ }
+ const o=[],add=s=>o.push(s);
+ add("<</Type/Catalog/Pages 2 0 R>>");
+ add(`<</Type/Pages/Kids[${pages.map((_,i)=>(5+i*2)+" 0 R").join(" ")}]/Count ${pages.length}>>`);
+ add("<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>");
+ add("<</Type/Font/Subtype/Type1/BaseFont/Helvetica-Bold/Encoding/WinAnsiEncoding>>");
+ pages.forEach((p,i)=>{const s=p.join("\n");add(`<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${W} ${H}]/Resources<</Font<</F1 3 0 R/F2 4 0 R>>${im?`/XObject<</Im1 ${5+2*pages.length} 0 R>>`:""}>>/Contents ${6+i*2} 0 R>>`);add(`<</Length ${s.length}>>\nstream\n${s}\nendstream`)});
+ if(im)add(`<</Type/XObject/Subtype/Image/Width ${im.w}/Height ${im.h}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${im.d.length}>>\nstream\n${im.d}\nendstream`);
+ let out="%PDF-1.4\n";const xr=[];
+ o.forEach((s,i)=>{xr.push(out.length);out+=`${i+1} 0 obj\n${s}\nendobj\n`});
+ const x=out.length;out+=`xref\n0 ${o.length+1}\n0000000000 65535 f \n`+xr.map(v=>String(v).padStart(10,"0")+" 00000 n \n").join("")+`trailer\n<</Size ${o.length+1}/Root 1 0 R>>\nstartxref\n${x}\n%%EOF`;
+ const u=new Uint8Array(out.length);for(let i=0;i<out.length;i++)u[i]=out.charCodeAt(i)&255;
+ return new Blob([u],{type:"application/pdf"})}
+function pdfBlocks(root){const b=[],tt=e=>e.textContent.trim().replace(/\s+/g," ");
+ root.querySelectorAll("h2,h3,small,.rdate,.stats,table,p,.sig").forEach(e=>{
+  if(e.matches("h2"))b.push({t:"title",s:tt(e)});
+  else if(e.matches("h3"))b.push({t:"h",s:tt(e)});
+  else if(e.matches("small,.rdate"))b.push({t:"sub",s:tt(e)});
+  else if(e.matches(".stats")){const k=[...e.children];b.push({t:"tbl",rows:[{c:k.map(x=>tt(x.querySelector("span"))),hd:1},{c:k.map(x=>tt(x.querySelector("b"))),hd:0}]})}
+  else if(e.matches("table"))b.push({t:"tbl",rows:[...e.querySelectorAll("tr")].map(tr=>({c:[...tr.children].map(tt),hd:!!tr.closest("thead")}))});
+  else if(e.matches(".sig"))b.push({t:"sp"},{t:"p",s:tt(e)});
+  else b.push({t:"p",s:tt(e)})});
+ return b}
+function initReports(){
+ const $=i=>document.getElementById(i);$("rv").value=dk(new Date());
+ 
+ const tb=(h,rows)=>rows.length?`<table class="t"><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`:'<p class="note" style="margin:0">None recorded.</p>';
+ const nums=a=>a.map(parseFloat).filter(x=>x>=0),rg=a=>{a=nums(a);return a.length?Math.min(...a)+"–"+Math.max(...a):"–"};
+ const sum=a=>nums(a).reduce((s,x)=>s+x,0),avg=a=>a.reduce((s,x)=>s+x,0)/a.length;
+ const tile=(l,v)=>`<div class="card stat"><b>${v}</b><span>${l}</span></div>`,h3=t=>`<h3 style="margin:14px 0 6px">${t}</h3>`;
+ const gen=()=>{
+  const kind=$("rt").value,w=kind==="w",mo=kind==="m",d0=$("rv").value||dk(new Date()),pr=ld("qaqc_projects").find(x=>x.n===cur())||{};
+  const dd0=new Date(d0+"T12:00"),days=mo?[...Array(new Date(dd0.getFullYear(),dd0.getMonth()+1,0).getDate())].map((_,i)=>dk(new Date(dd0.getFullYear(),dd0.getMonth(),i+1,12))):[...Array(w?7:1)].map((_,i)=>dk(+new Date(d0+"T12:00")+i*864e5));
+  const BM={};P("qaqc_batches").forEach(b=>BM[b.no]=b);const B=P("qaqc_batches").filter(x=>days.includes(dk(x.t))),D=P("qaqc_deliveries").filter(x=>days.includes(dk(x.t)));
+  const PS=pours().filter(p=>days.includes(p.date)),T=P("qaqc_tests").filter(x=>w?days.includes(dk(x.t)):PS.some(p=>p.k===testKey(x)));
+  const pset=new Set(D.map(x=>x.loc+" ("+x.el+")")),vol=sum(D.map(x=>x.v)).toFixed(0)+" m³";
+  let o=`<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:2px solid var(--accent);padding-bottom:8px"><div style="display:flex;gap:10px;align-items:center">${LOGO?`<img src="${LOGO.u}" alt="Logo" style="height:44px;width:auto">`:""}<div><h2 style="margin:0">${mo?"Monthly concrete summary":w?"Weekly concrete summary":"Daily concrete pour report"}</h2><small style="color:var(--muted)">Black Diamond Engineering Company</small></div></div><div class="rdate" style="text-align:right;font-size:12px;color:var(--muted)">${w||mo?days[0]+" to "+days[days.length-1]:d0}</div></div><table class="t" style="margin:8px 0"><tr><td>Project</td><td>${esc(cur()||"–")}</td></tr><tr><td>Client</td><td>${esc(pr.c||"–")}</td></tr><tr><td>Location</td><td>${esc(pr.l||"–")}</td></tr><tr><td>Specified grades</td><td>${esc(pr.g||"–")}</td></tr></table>`;
+  if(!w&&!mo){
+   o+=`<div class="grid stats">${tile("Volume delivered",vol)}${tile("Trucks",D.length)}${tile("Slump range (mm)",rg(D.map(x=>x.sl)))}${tile("Temp range (°C)",rg(D.map(x=>x.tp)))}</div>`+h3("Pour locations")+`<p style="margin:0">${esc([...pset].join(", ")||"–")}</p>`+h3("Deliveries")+tb(["Batch","Truck","Driver","Location","Departed","Arrival","Slump","Temp"],D.map(x=>[x.b,x.tk,x.dr,x.loc+" ("+x.el+")",(BM[x.b]||{}).dp||"–",x.ar||"–",x.sl||"–",x.tp||"–"]))+h3("Batch checks")+tb(["Batch","m³","w/c","Result"],B.map(x=>[x.no,x.v,x.ew||"–",x.st]))+h3("Cube samples")+`<p style="margin:0 0 6px">${PS.length} pours × 6 cubes = ${PS.length*6} cubes</p>`+tb(["Pour","Age","Cubes","Mean MPa","% spec","Result"],T.map(x=>[x.pl||x.b,x.age+"-day",x.v.length,x.m.toFixed(1),x.sp?(x.m/x.sp*100).toFixed(0)+"%":"–",x.st]))
+  }else{
+   o+=`<div class="grid stats">${tile("Concrete delivered",vol)}${tile("Pours",PS.length)}${tile("Trucks",D.length)}${tile("Batches",B.length)}</div>`+(()=>{const ch=w?days.map(d=>[d]):days.reduce((a,d,i)=>{i%7?a[a.length-1].push(d):a.push([d]);return a},[]);return h3(w?"Day by day":"Week by week")+tb([w?"Date":"Period","Pours","Trucks","Volume (m³)"],ch.map(g=>{const x=D.filter(y=>g.includes(dk(y.t)));return[g.length>1?g[0]+" to "+g[g.length-1]:g[0],PS.filter(p=>g.includes(p.date)).length,x.length,sum(x.map(y=>y.v)).toFixed(0)]}))})()+(mo?h3("Pours")+tb(["Date","Location","Grade","Trucks","m³","Cubes tested"],PS.slice().sort((a,b)=>a.t<b.t?-1:1).map(p=>[p.date,p.loc+" ("+p.el+")",p.ds[0].gr||"–",p.ds.length,sum(p.ds.map(x=>x.v)).toFixed(0),P("qaqc_tests").filter(x=>testKey(x)===p.k).reduce((a,x)=>a+x.v.length,0)+" of 6"])):"")+h3(mo?"Strength results (tested this month)":"Strength results (tested this week)")+tb(["Age","Sets","Mean MPa","Mean % spec","28-day passed"],[7,14,28].map(a=>{const x=T.filter(y=>y.age===a),s=x.filter(y=>y.sp);return[a+"-day",x.length,x.length?avg(x.map(y=>y.m)).toFixed(1):"–",s.length?avg(s.map(y=>y.m/y.sp*100)).toFixed(0)+"%":"–",a===28?x.filter(y=>y.st==="Pass").length+" of "+x.length:"–"]}))+h3("Batches")+`<p style="margin:0">Pass ${B.filter(x=>x.st==="Pass").length} · Check ${B.filter(x=>x.st==="Check").length} · No actuals ${B.filter(x=>x.st==="No actuals").length}</p>`+h3("Items to follow up")+tb(["Item","Detail"],[...B.filter(x=>x.st==="Check").map(x=>[x.no,"Batch outside tolerance or w/c"]),...T.filter(x=>x.st==="Below spec").map(x=>[x.pl||x.b,"28-day mean below specified"])])
+  }
+  $("rc").innerHTML=o+h3("Remarks")+`<p style="white-space:pre-wrap;margin:0">${esc($("rk").value)||"–"}</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;font-size:12px;color:var(--muted)"><div class="sig" style="border-top:1px solid var(--line);padding-top:4px">QA/QC engineer: ${esc($("rb").value)}</div><div class="sig" style="border-top:1px solid var(--line);padding-top:4px">${w||mo?"Project manager":"Site engineer"}</div></div>`};
+ hooks.reports=gen;$("reports").addEventListener("input",gen);$("rp").onclick=async()=>{const m=$("rpm");m.textContent="";
+  try{
+   gen();const host=document.createElement("div");host.innerHTML=$("rc").innerHTML;
+   const blob=makePDF(LOGO?[{t:"img",d:LOGO.d,w:LOGO.w,h:LOGO.h},...pdfBlocks(host)]:pdfBlocks(host));
+   const fn= ({d:"daily",w:"weekly",m:"monthly"}[$("rt").value])+"-concrete-report-"+($("rv").value||"")+".pdf",dl=typeof claude!=="undefined"?await claude.use("downloads").catch(()=>null):null;if(dl){await dl.save({filename:fn,data:blob});return}
+   const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download= ({d:"daily",w:"weekly",m:"monthly"}[$("rt").value])+"-concrete-report-"+($("rv").value||"")+".pdf";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){m.textContent=e&&e.code==="declined"?"":(e&&e.message)||"Could not create the PDF."}};
+ gen()}
+function initDashboard(){
+ const $=i=>document.getElementById(i),t0=()=>dk(new Date());
+ const addD=(d,n)=>dk(+new Date(d+"T12:00")+n*864e5),diff=(a,b)=>Math.round((new Date(a+"T12:00")-new Date(b+"T12:00"))/864e5);
+ const fm=d=>new Date(d+"T12:00").toLocaleDateString(undefined,{day:"numeric",month:"short"}),sm=a=>a.reduce((x,y)=>x+(parseFloat(y.v)||0),0);
+ const draw=()=>{
+  const td=t0(),B=P("qaqc_batches"),D=P("qaqc_deliveries"),T=P("qaqc_tests"),DT=D.filter(x=>dk(x.t)===td),g={};
+  DT.forEach(x=>{const k=x.loc+"|"+x.el;(g[k]=g[k]||[]).push(x)});const ks=Object.keys(g);
+  const due=[];pours().forEach(p=>[7,14,28].forEach(a=>{if(T.some(x=>testKey(x)===p.k&&x.age===a))return;const n=diff(addD(p.date,a),td);if(n<=7)due.push({p,a,n})}));
+  due.sort((x,y)=>x.n-y.n);
+  $("ds1").textContent=ks.length;$("ds2").textContent=DT.length;$("ds3").textContent=sm(DT).toFixed(0)+" m³";$("ds4").textContent=due.filter(x=>x.n<=0).length;
+  $("dpl").innerHTML=ks.length?ks.map(k=>{const a=g[k],l=a.map(x=>x.ar).filter(Boolean).sort().pop();return `<div class="row"><div>${esc(a[0].loc)} (${esc(a[0].el)})<small>${esc(a[0].gr||"–")} · ${sm(a).toFixed(0)} m³${l?" · last arrival "+esc(l):""}</small></div><span class="tag ok">${a.length} truck${a.length>1?"s":""}</span></div>`}).join(""):'<p class="note" style="margin:0">No deliveries logged today.</p>';
+  $("dtl").innerHTML=due.length?due.slice(0,8).map(x=>`<div class="row"><div>${esc(x.p.loc)} (${esc(x.p.el)}) · ${x.a}-day<small>cast ${fm(x.p.date)}</small></div><span class="tag ${x.n<=0?"warn":""}">${x.n<0?"Overdue "+(-x.n)+"d":x.n===0?"Due today":"In "+x.n+"d"}</span></div>`).join(""):'<p class="note" style="margin:0">No tests due in the next 7 days.</p>'};
+ hooks.dashboard=draw;document.addEventListener("visibilitychange",()=>{if(!document.hidden)draw()});draw()}
+const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=u=>{let c=-1;for(let i=0;i<u.length;i++)c=crcT[(c^u[i])&255]^(c>>>8);return(c^-1)>>>0};
+function zipBlob(files){
+ const en=new TextEncoder(),parts=[],cd=[],w16=v=>[v&255,v>>8&255],w32=v=>[v&255,v>>8&255,v>>16&255,v>>>24&255];let off=0;
+ files.forEach(f=>{const nm=en.encode(f.n),d=en.encode(f.d),c=crc32(d),h=Uint8Array.from([0x50,0x4b,3,4,...w16(20),...w16(0),...w16(0),...w16(0),...w16(0x21),...w32(c),...w32(d.length),...w32(d.length),...w16(nm.length),...w16(0)]);
+  parts.push(h,nm,d);cd.push(Uint8Array.from([0x50,0x4b,1,2,...w16(20),...w16(20),...w16(0),...w16(0),...w16(0),...w16(0x21),...w32(c),...w32(d.length),...w32(d.length),...w16(nm.length),...w16(0),...w16(0),...w16(0),...w16(0),...w32(0),...w32(off)]),nm);off+=h.length+nm.length+d.length});
+ const cs=cd.reduce((a,x)=>a+x.length,0);
+ return new Blob([...parts,...cd,Uint8Array.from([0x50,0x4b,5,6,0,0,0,0,...w16(files.length),...w16(files.length),...w32(cs),...w32(off),0,0])],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}
+function xlsxBlob(sheets){
+ const X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',col=i=>String.fromCharCode(65+i);
+ const cell=(v,r,c)=>{const a=col(c)+r;return typeof v==="number"&&isFinite(v)?`<c r="${a}"><v>${v}</v></c>`:`<c r="${a}" t="inlineStr"><is><t>${esc(v==null?"":v)}</t></is></c>`};
+ const sh=sheets.map(([n,h,rows])=>X+'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+[h,...rows].map((r,i)=>`<row r="${i+1}">${r.map((v,c)=>cell(v,i+1,c)).join("")}</row>`).join("")+"</sheetData></worksheet>");
+ const f=[{n:"[Content_Types].xml",d:X+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")+"</Types>"},
+ {n:"_rels/.rels",d:X+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+ {n:"xl/workbook.xml",d:X+'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.map((s,i)=>`<sheet name="${s[0]}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")+"</sheets></workbook>"},
+ {n:"xl/_rels/workbook.xml.rels",d:X+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")+"</Relationships>"},
+ ...sh.map((d,i)=>({n:`xl/worksheets/sheet${i+1}.xml`,d}))];
+ return zipBlob(f)}
+function initBackup(){
+ const $=i=>document.getElementById(i),K=["qaqc_projects","qaqc_batches","qaqc_deliveries","qaqc_tests"];
+ const names={qaqc_projects:"Projects",qaqc_batches:"Batches",qaqc_deliveries:"Deliveries",qaqc_tests:"Tests"};
+ $("bk").innerHTML=`<p id="bks" class="note" style="margin:0 0 10px"></p><div style="display:grid;gap:8px"><button class="btn" id="bkx">Download Excel backup</button><label class="btn alt" style="display:block;cursor:pointer;text-align:center">Import Excel backup<input id="bkf" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none"></label><button class="btn danger" id="bkclear" type="button">Clear All Data</button></div><p id="bkm" class="note"></p>`;
+ const msg=t=>{$("bkm").textContent=t};
+ const stat=()=>{let lb="";try{lb=localStorage.getItem("qaqc_lastbk")||""}catch(e){}const n=K.reduce((a,k)=>a+ld(k).length,0);$("bks").textContent=!n?"No records saved yet.":(lb?"Last Excel backup: "+lb:"No Excel backup yet")+" · "+n+" records saved";$("bks").style.color=n&&!lb?"var(--warn)":"var(--muted)"};
+ const get=()=>{const d={};K.forEach(k=>d[k]=ld(k));return d};
+ const save=async(blob,name)=>{try{const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);try{localStorage.setItem("qaqc_lastbk",dk(new Date()))}catch(e){}stat();msg("Excel backup downloaded successfully.")}catch(e){msg("Could not save the Excel backup file.")}};
+ $("bkx").onclick=()=>{const B=ld("qaqc_batches"),D=ld("qaqc_deliveries"),T=ld("qaqc_tests"),n=v=>{v=parseFloat(v);return isFinite(v)?v:""};
+  save(xlsxBlob([
+   ["Projects",["Project","Client","Location","Grades","Team","Acceptance rule"],ld("qaqc_projects").map(r=>[r.n,r.c,r.l,r.g,r.t,r.a])],
+   ["Batches",["Batch","Project","Date","Truck","Driver","Volume m3","Departure","Mix ref","w/c","Result"],B.map(r=>[r.no,r.p,dk(r.t),r.tk,r.dr,n(r.v),r.dp,r.mx,n(r.ew),r.st])],
+   ["Deliveries",["Ref","Project","Date","Batch","Truck","Driver","Location","Element","Grade","Volume m3","Arrival","Slump mm","Temp C"],D.map(r=>[r.no,r.p,dk(r.t),r.b,r.tk,r.dr,r.loc,r.el,r.gr,n(r.v),r.ar,n(r.sl),n(r.tp)])],
+   ["Tests",["Ref","Project","Date","Pour","Age days","Cubes","Cube strengths MPa","Mean MPa","Specified MPa","% of specified","Result"],T.map(r=>[r.no,r.p,dk(r.t),r.pl||r.b,r.age,r.v.length,r.v.join(", "),+r.m.toFixed(2),n(r.sp),r.sp?+(r.m/r.sp*100).toFixed(0):"",r.st])]
+  ]),"qaqc-excel-backup-"+dk(new Date())+".xlsx")};
+ const escXml=s=>String(s??"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+ const colNum=ref=>{let m=String(ref||"").match(/[A-Z]+/i);if(!m)return 0;let n=0;for(const ch of m[0].toUpperCase())n=n*26+ch.charCodeAt(0)-64;return n-1};
+ async function unzip(blob){
+  const a=new Uint8Array(await blob.arrayBuffer()),dv=new DataView(a.buffer),out={};let pos=0;
+  while(pos+30<=a.length){
+   if(dv.getUint32(pos,true)!==0x04034b50)break;
+   const method=dv.getUint16(pos+8,true),cs=dv.getUint32(pos+18,true),nl=dv.getUint16(pos+26,true),el=dv.getUint16(pos+28,true),name=new TextDecoder().decode(a.slice(pos+30,pos+30+nl));
+   const raw=a.slice(pos+30+nl+el,pos+30+nl+el+cs);let data;
+   if(method===0)data=raw;
+   else if(method===8&&"DecompressionStream" in window){const ds=new DecompressionStream("deflate-raw");data=new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(ds)).arrayBuffer())}
+   else throw new Error("This Excel file uses a compression method not supported by this browser.");
+   out[name]=new TextDecoder().decode(data);pos+=30+nl+el+cs;
+  }
+  return out;
+ }
+ function rowsFromXml(xml){
+  const doc=new DOMParser().parseFromString(xml,"application/xml"),bad=doc.querySelector("parsererror");if(bad)throw new Error("Invalid Excel worksheet.");
+  return [...doc.getElementsByTagName("row")].map(row=>{const vals=[];for(const c of [...row.getElementsByTagName("c")]){const idx=colNum(c.getAttribute("r"));let v="",is=c.getElementsByTagName("is")[0],vv=c.getElementsByTagName("v")[0];if(is)v=is.textContent;else if(vv)v=vv.textContent;vals[idx]=v}return vals.map(v=>v??"")});
+ }
+ const num=v=>{const n=parseFloat(v);return isFinite(n)?n:0};
+ async function importExcel(file){
+  if(!file||!/.xlsx$/i.test(file.name)){msg("Please choose an Excel .xlsx backup file.");return}
+  try{
+   msg("Reading Excel backup…");const z=await unzip(file),wb=new DOMParser().parseFromString(z["xl/workbook.xml"]||"","application/xml");
+   if(!wb.documentElement||!z["xl/workbook.xml"])throw new Error("This is not a valid .xlsx file.");
+   const relDoc=new DOMParser().parseFromString(z["xl/_rels/workbook.xml.rels"]||"","application/xml"),rels={};
+   for(const r of [...relDoc.getElementsByTagName("Relationship")])rels[r.getAttribute("Id")]=r.getAttribute("Target");
+   const sheets={};for(const sh of [...wb.getElementsByTagName("sheet")]){const target=rels[sh.getAttribute("r:id")];if(target){const path=target.startsWith("/")?target.slice(1):"xl/"+target.replace(/^\//,"");sheets[sh.getAttribute("name")]=rowsFromXml(z[path]||"")}}
+   const required=["Projects","Batches","Deliveries","Tests"];if(!required.every(n=>sheets[n]))throw new Error("This Excel file is not a Concrete QA/QC backup created by this app.");
+   const P=sheets.Projects.slice(1).filter(r=>r.some(Boolean)).map(r=>({n:r[0]||"",c:r[1]||"",l:r[2]||"",g:r[3]||"",t:r[4]||"",a:r[5]||""})).filter(r=>r.n);
+   const B=sheets.Batches.slice(1).filter(r=>r.some(Boolean)).map(r=>({no:r[0]||"",p:r[1]||"",t:r[2]?new Date(r[2]).toISOString():new Date().toISOString(),tk:r[3]||"",dr:r[4]||"",v:num(r[5]),dp:r[6]||"",mx:r[7]||"",ew:r[8]===0?"":String(r[8]||""),st:r[9]||""})).filter(r=>r.no);
+   const D=sheets.Deliveries.slice(1).filter(r=>r.some(Boolean)).map(r=>({no:r[0]||"",p:r[1]||"",t:r[2]?new Date(r[2]).toISOString():new Date().toISOString(),b:r[3]||"",tk:r[4]||"",dr:r[5]||"",loc:r[6]||"",el:r[7]||"",gr:r[8]||"",v:num(r[9]),ar:r[10]||"",sl:r[11]||"",tp:r[12]||""})).filter(r=>r.no);
+   const T=sheets.Tests.slice(1).filter(r=>r.some(Boolean)).map(r=>{const vv=String(r[6]||"").split(",").map(Number).filter(x=>isFinite(x)&&x>0),m=num(r[7]);return{no:r[0]||"",p:r[1]||"",t:r[2]?new Date(r[2]).toISOString():new Date().toISOString(),pl:r[3]||"",age:num(r[4]),v:vv,m,sp:num(r[8]),st:r[10]||""}}).filter(r=>r.no);
+   const all=[...B.map(x=>+String(x.no).slice(2)),...D.map(x=>+String(x.no).slice(2)),...T.map(x=>+String(x.no).slice(2))].filter(isFinite);if(!P.length&&!B.length&&!D.length&&!T.length)throw new Error("The Excel backup contains no QA/QC records.");
+   if(!confirm("Import this Excel backup and replace the records currently saved?")){$("bkf").value="";msg("Import cancelled.");return}
+   sv("qaqc_projects",P);sv("qaqc_batches",B);sv("qaqc_deliveries",D);sv("qaqc_tests",T);try{localStorage.setItem("qaqc_bn",Math.max(0,...B.map(x=>+String(x.no).slice(2)).filter(isFinite)))}catch(e){}
+   if(window.refreshProjects)window.refreshProjects();rfAll();stat();msg(`Excel backup imported: ${P.length} projects, ${B.length} batches, ${D.length} deliveries and ${T.length} tests.`);$("bkf").value="";
+  }catch(e){msg(e.message||"Could not import the Excel backup file.");$("bkf").value=""}
+ }
+ $("bkf").onchange=e=>{const f=e.target.files[0];if(f)importExcel(f)};
+ $("bkclear").onclick=()=>{
+  const n=K.reduce((a,k)=>a+ld(k).length,0);
+  if(!n){msg("There is no saved QA/QC data to clear.");return}
+  const sure=confirm("Are you sure you want to clear ALL QA/QC data?\n\nThis will permanently remove all projects, batches, deliveries and test records saved.\n\nClick OK to continue or Cancel to keep your data.");
+  if(!sure){msg("Clear all data cancelled.");return}
+  const again=confirm("Final confirmation: Clear ALL QA/QC data now?");
+  if(!again){msg("Clear all data cancelled.");return}
+  K.forEach(k=>{localStorage.removeItem(k);push(k,[])});
+  try{localStorage.removeItem("qaqc_bn");localStorage.removeItem("qaqc_lastbk")}catch(e){}
+  if(window.refreshProjects)window.refreshProjects();
+  rfAll();stat();msg("All QA/QC data has been cleared.");
+ };
+ const h0=hooks.dashboard;hooks.dashboard=()=>{if(h0)h0();stat()};stat()
+}
+
+const order=["dashboard","projects","batching","casting","testing","records","reports"];
+const label={dashboard:"Dashboard",projects:"Projects",batching:"Batching",casting:"Casting",testing:"Testing",records:"Records",reports:"Reports"};
+const nav=document.getElementById("nav"),main=document.querySelector("main");
+const chips=a=>'<div class="chips">'+a.map(x=>"<span>"+x+"</span>").join("")+"</div>";
+for(const k in M){const [t,d,f,c,n]=M[k];const s=document.createElement("section");s.id=k;
+ if(k in X){s.innerHTML=X[k];main.appendChild(s);continue}
+ s.innerHTML=`<div class="mh">${I[k]}<div><h2>${t}</h2><p class="lead">${d}</p></div></div>
+ <div class="cols"><div class="card"><h3>Entry form</h3>${chips(f)}</div>
+ <div class="card"><h3>List view</h3>${chips(c)}</div></div>
+ <div class="grid actions" style="grid-template-columns:1fr 1fr"><button class="btn">Add new</button><button class="btn alt">Search and filter</button></div>
+ <p class="note">${n} Layout only for now; these screens get built one at a time.</p>`;
+ main.appendChild(s);}
+order.forEach(k=>{const b=document.createElement("button");b.innerHTML=I[k]+"<span>"+label[k]+"</span>";b.dataset.k=k;b.setAttribute("role","tab");nav.appendChild(b)});
+function go(k){
+ document.querySelectorAll("section").forEach(s=>{
+   const active=s.id===k;
+   s.classList.toggle("on",active);
+   if(active){
+     s.classList.remove("page-enter");
+     void s.offsetWidth;
+     s.classList.add("page-enter");
+     [...s.querySelectorAll(".card,.mh,h2,.lead,.f label,.t tbody tr,.row,.chain i,.chips span")].forEach((el,i)=>el.style.setProperty("--motion-i",Math.min(i,12)));
+   }
+ });
+ nav.querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.k===k));
+ if(hooks[k])hooks[k]();
+ const sb=nav.querySelector('[aria-selected="true"]');
+ if(sb)sb.scrollIntoView({inline:"center",block:"nearest",behavior:"smooth"});
+ scrollTo(0,0)
+}
+nav.addEventListener("click",e=>{const b=e.target.closest("button");if(b)go(b.dataset.k)});
+document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g)go(g.dataset.go)});
+document.querySelectorAll("[data-go]").forEach(b=>b.insertAdjacentHTML("afterbegin",I[b.dataset.go]));
+let started=false;
+function startApp(){if(started)return;started=true;initProjects();initBatch();initCasting();initTesting();initRecords();initReports();initDashboard();initBackup();go("dashboard")}
+async function pull(){
+ setSync("Loading…");
+ const {data,error}=await SB.from("app_data").select("key,value");
+ if(error){setSync("⚠ Could not load online data");return}
+ const cloud={};(data||[]).forEach(r=>cloud[r.key]=r.value);
+ KEYS.forEach(k=>{
+  if(k in cloud){try{localStorage.setItem(k,JSON.stringify(cloud[k]))}catch(e){}}
+  else{const l=ld(k);if(l.length)push(k,l)}
+ });
+ setSync("✓ Synced");
+}
+async function enter(session){
+ document.getElementById("auth").style.display="none";
+ setSync("Loading…");
+ await pull();startApp();
+}
+document.getElementById("lgo").onclick=async()=>{
+ const err=document.getElementById("lerr");err.textContent="";
+ const {data,error}=await SB.auth.signInWithPassword({email:document.getElementById("lem").value.trim(),password:document.getElementById("lpw").value});
+ if(error){err.textContent="Wrong email or password.";return}
+ enter(data.session)};
+document.getElementById("lpw").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("lgo").click()});
+document.getElementById("lout").onclick=async()=>{await SB.auth.signOut();location.reload()};
+SB.auth.getSession().then(({data})=>{if(data.session)enter(data.session)});
+</script>
+</body>
+</html>
