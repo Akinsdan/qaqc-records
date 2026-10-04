@@ -61,6 +61,10 @@ nav button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.16
 .t tbody tr:hover{background:var(--soft)}
 .hero{animation:softPop .55s ease both}
 @media (max-height:640px){#auth .brand svg{width:56px;height:56px}#auth .nm{font-size:22px}#auth .brand{margin-bottom:12px;gap:6px}}
+#rec{position:fixed;inset:0;z-index:1000;background:#0B3A75;display:none;align-items:center;justify-content:center;padding:20px}
+#rec .box{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:360px;display:grid;gap:12px}
+#rec label{display:grid;gap:4px;font-size:13px;color:var(--muted)}#rec input{padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px}
+#rec .err{color:var(--warn);font-size:13px;min-height:16px;margin:0;text-align:center}
 @media (prefers-reduced-motion:reduce){
   section.page-enter,section.page-enter .card,section.page-enter .mh,section.page-enter>h2,section.page-enter>.lead,section.page-enter .f label,section.page-enter .t tr,section.page-enter .row,section.page-enter .chain i,section.page-enter .chips span,nav button,.hero{animation:none!important}
   .btn,.card,.stat,.t tbody tr{transition:none!important}
@@ -183,7 +187,7 @@ h2{font-size:18px;margin:18px 0 8px}
 <div class="box"><div><h2>Concrete QA/QC</h2><small>Black Diamond Engineering Company</small></div>
 <label>Email<input id="lem" type="email" autocomplete="username"></label>
 <label>Password<span class="pw"><input id="lpw" type="password" autocomplete="current-password"><button type="button" id="eye" aria-label="Show password"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
-<p class="err" id="lerr"></p><button class="btn" id="lgo" style="width:100%">Sign in</button></div></div>
+<p class="err" id="lerr"></p><button class="btn" id="lgo" style="width:100%">Sign in</button><a href="#" id="lfp" style="text-align:center;font-size:13px;color:#1F7AE0;text-decoration:none;padding:4px">Forgot password?</a></div></div>
 <header>
   <div class="top">
     <div><h1>Concrete QA/QC</h1><small>Black Diamond Engineering Company</small></div>
@@ -347,10 +351,12 @@ function initBatch(){
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ld=k=>{try{return JSON.parse(localStorage.getItem(k)||"[]")}catch(e){return[]}};
 const SB=window.supabase.createClient("https://ygcnynnchgqmfwvmlxjz.supabase.co","sb_publishable_oQw1qef_Bqo59AmVN58iIA_KZSOho64");
-const KEYS=["qaqc_projects","qaqc_batches","qaqc_deliveries","qaqc_tests"];
+const KEYS=["qaqc_projects","qaqc_batches","qaqc_deliveries","qaqc_tests","qaqc_photos"];
 const setSync=t=>{const e=document.getElementById("syncs");if(e)e.textContent=t};
 const pushT={};
-const push=(k,v)=>{clearTimeout(pushT[k]);setSync("Saving…");pushT[k]=setTimeout(async()=>{const {error}=await SB.from("app_data").upsert({key:k,value:v,updated_at:new Date().toISOString()});setSync(error?"⚠ Not saved online – check connection":"✓ Saved online")},400)};
+const dg=()=>{try{return JSON.parse(localStorage.getItem("qaqc_dirty")||"[]")}catch(e){return[]}},ds=a=>{try{localStorage.setItem("qaqc_dirty",JSON.stringify(a))}catch(e){}};
+const push=(k,v)=>{clearTimeout(pushT[k]);setSync("Saving…");const d=dg();if(!d.includes(k))ds(d.concat(k));pushT[k]=setTimeout(async()=>{let error=null;try{({error}=await SB.from("app_data").upsert({key:k,value:v,updated_at:new Date().toISOString()}))}catch(e){error=e}if(error)setSync(navigator.onLine?"⚠ Not saved online – check connection":"Offline – will sync when back online");else{ds(dg().filter(x=>x!==k));setSync("✓ Saved online")}},400)};
+window.addEventListener("online",()=>dg().forEach(k=>push(k,ld(k))));
 const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}if(KEYS.includes(k))push(k,v)};
 const hooks={},redraws=[];
 const rfAll=()=>{redraws.forEach(f=>f());Object.values(hooks).forEach(f=>f())};
@@ -524,11 +530,11 @@ function initReports(){
   const pset=new Set(D.map(x=>x.loc+" ("+x.el+")")),vol=sum(D.map(x=>x.v)).toFixed(0)+" m³";
   let o=`<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:2px solid var(--accent);padding-bottom:8px"><div style="display:flex;gap:10px;align-items:center">${LOGO?`<img src="${LOGO.u}" alt="Logo" style="height:44px;width:auto">`:""}<div><h2 style="margin:0">${mo?"Monthly concrete summary":w?"Weekly concrete summary":"Daily concrete pour report"}</h2><small style="color:var(--muted)">Black Diamond Engineering Company</small></div></div><div class="rdate" style="text-align:right;font-size:12px;color:var(--muted)">${w||mo?days[0]+" to "+days[days.length-1]:d0}</div></div><table class="t" style="margin:8px 0"><tr><td>Project</td><td>${esc(cur()||"–")}</td></tr><tr><td>Client</td><td>${esc(pr.c||"–")}</td></tr><tr><td>Location</td><td>${esc(pr.l||"–")}</td></tr><tr><td>Specified grades</td><td>${esc(pr.g||"–")}</td></tr></table>`;
   if(!w&&!mo){
-   o+=`<div class="grid stats">${tile("Volume delivered",vol)}${tile("Trucks",D.length)}${tile("Slump range (mm)",rg(D.map(x=>x.sl)))}${tile("Temp range (°C)",rg(D.map(x=>x.tp)))}</div>`+h3("Pour locations")+`<p style="margin:0">${esc([...pset].join(", ")||"–")}</p>`+h3("Deliveries")+tb(["Batch","Truck","Driver","Location","Departed","Arrival","Slump","Temp"],D.map(x=>[x.b,x.tk,x.dr,x.loc+" ("+x.el+")",(BM[x.b]||{}).dp||"–",x.ar||"–",x.sl||"–",x.tp||"–"]))+h3("Batch checks")+tb(["Batch","m³","w/c","Result"],B.map(x=>[x.no,x.v,x.ew||"–",x.st]))+h3("Cube samples")+`<p style="margin:0 0 6px">${PS.length} pours × 6 cubes = ${PS.length*6} cubes</p>`+tb(["Pour","Age","Cubes","Mean MPa","% spec","Result"],T.map(x=>[x.pl||x.b,x.age+"-day",x.v.length,x.m.toFixed(1),x.sp?(x.m/x.sp*100).toFixed(0)+"%":"–",x.st]))
+   o+=`<div class="grid stats">${tile("Volume delivered",vol)}${tile("Trucks",D.length)}${tile("Slump range (mm)",rg(D.map(x=>x.sl)))}${tile("Temp range (°C)",rg(D.map(x=>x.tp)))}</div>`+h3("Pour locations")+`<p style="margin:0">${esc([...pset].join(", ")||"–")}</p>`+h3("Deliveries")+tb(["Batch","Truck","Driver","Location","Departed","Arrival","Slump","Temp"],D.map(x=>[x.b,x.tk,x.dr,x.loc+" ("+x.el+")",(BM[x.b]||{}).dp||"–",x.ar||"–",x.sl||"–",x.tp||"–"]))+h3("Batch checks")+tb(["Batch","m³","w/c","Result"],B.map(x=>[x.no,x.v,x.ew||"–",x.st]))+h3("Cube samples")+`<p style="margin:0 0 6px">${PS.length} pours × 6 cubes = ${PS.length*6} cubes</p>`+tb(["Pour","Age","Cubes","Mean MPa","% spec","Result"],T.map(x=>[x.pl||x.b,x.age+"-day",x.v.length,x.m.toFixed(1),x.sp?(x.m/x.sp*100).toFixed(0)+"%":"–",x.st]))+h3("Site photos")+'<div id="rph"></div>'
   }else{
    o+=`<div class="grid stats">${tile("Concrete delivered",vol)}${tile("Pours",PS.length)}${tile("Trucks",D.length)}${tile("Batches",B.length)}</div>`+(()=>{const ch=w?days.map(d=>[d]):days.reduce((a,d,i)=>{i%7?a[a.length-1].push(d):a.push([d]);return a},[]);return h3(w?"Day by day":"Week by week")+tb([w?"Date":"Period","Pours","Trucks","Volume (m³)"],ch.map(g=>{const x=D.filter(y=>g.includes(dk(y.t)));return[g.length>1?g[0]+" to "+g[g.length-1]:g[0],PS.filter(p=>g.includes(p.date)).length,x.length,sum(x.map(y=>y.v)).toFixed(0)]}))})()+(mo?h3("Pours")+tb(["Date","Location","Grade","Trucks","m³","Cubes tested"],PS.slice().sort((a,b)=>a.t<b.t?-1:1).map(p=>[p.date,p.loc+" ("+p.el+")",p.ds[0].gr||"–",p.ds.length,sum(p.ds.map(x=>x.v)).toFixed(0),P("qaqc_tests").filter(x=>testKey(x)===p.k).reduce((a,x)=>a+x.v.length,0)+" of 6"])):"")+h3(mo?"Strength results (tested this month)":"Strength results (tested this week)")+tb(["Age","Sets","Mean MPa","Mean % spec","28-day passed"],[7,14,28].map(a=>{const x=T.filter(y=>y.age===a),s=x.filter(y=>y.sp);return[a+"-day",x.length,x.length?avg(x.map(y=>y.m)).toFixed(1):"–",s.length?avg(s.map(y=>y.m/y.sp*100)).toFixed(0)+"%":"–",a===28?x.filter(y=>y.st==="Pass").length+" of "+x.length:"–"]}))+h3("Batches")+`<p style="margin:0">Pass ${B.filter(x=>x.st==="Pass").length} · Check ${B.filter(x=>x.st==="Check").length} · No actuals ${B.filter(x=>x.st==="No actuals").length}</p>`+h3("Items to follow up")+tb(["Item","Detail"],[...B.filter(x=>x.st==="Check").map(x=>[x.no,"Batch outside tolerance or w/c"]),...T.filter(x=>x.st==="Below spec").map(x=>[x.pl||x.b,"28-day mean below specified"])])
   }
-  $("rc").innerHTML=o+h3("Remarks")+`<p style="white-space:pre-wrap;margin:0">${esc($("rk").value)||"–"}</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;font-size:12px;color:var(--muted)"><div class="sig" style="border-top:1px solid var(--line);padding-top:4px">QA/QC engineer: ${esc($("rb").value)}</div><div class="sig" style="border-top:1px solid var(--line);padding-top:4px">${w||mo?"Project manager":"Site engineer"}</div></div>`};
+  $("rc").innerHTML=o+h3("Remarks")+`<p style="white-space:pre-wrap;margin:0">${esc($("rk").value)||"–"}</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;font-size:12px;color:var(--muted)"><div class="sig" style="border-top:1px solid var(--line);padding-top:4px">QA/QC engineer: ${esc($("rb").value)}</div><div class="sig" style="border-top:1px solid var(--line);padding-top:4px">${w||mo?"Project manager":"Site engineer"}</div></div>`;if(!w&&!mo&&window.reportPhotos)window.reportPhotos(PS.map(p=>p.k))};
  hooks.reports=gen;$("reports").addEventListener("input",gen);$("rp").onclick=async()=>{const m=$("rpm");m.textContent="";
   try{
    gen();const host=document.createElement("div");host.innerHTML=$("rc").innerHTML;
@@ -548,7 +554,10 @@ function initDashboard(){
   due.sort((x,y)=>x.n-y.n);
   $("ds1").textContent=ks.length;$("ds2").textContent=DT.length;$("ds3").textContent=sm(DT).toFixed(0)+" m³";$("ds4").textContent=due.filter(x=>x.n<=0).length;
   $("dpl").innerHTML=ks.length?ks.map(k=>{const a=g[k],l=a.map(x=>x.ar).filter(Boolean).sort().pop();return `<div class="row"><div>${esc(a[0].loc)} (${esc(a[0].el)})<small>${esc(a[0].gr||"–")} · ${sm(a).toFixed(0)} m³${l?" · last arrival "+esc(l):""}</small></div><span class="tag ok">${a.length} truck${a.length>1?"s":""}</span></div>`}).join(""):'<p class="note" style="margin:0">No deliveries logged today.</p>';
-  $("dtl").innerHTML=due.length?due.slice(0,8).map(x=>`<div class="row"><div>${esc(x.p.loc)} (${esc(x.p.el)}) · ${x.a}-day<small>cast ${fm(x.p.date)}</small></div><span class="tag ${x.n<=0?"warn":""}">${x.n<0?"Overdue "+(-x.n)+"d":x.n===0?"Due today":"In "+x.n+"d"}</span></div>`).join(""):'<p class="note" style="margin:0">No tests due in the next 7 days.</p>'};
+  const row=x=>`<div class="row" data-due="${esc(x.p.k)}|${x.a}" style="cursor:pointer"><div>${esc(x.p.loc)} (${esc(x.p.el)}) · ${x.a}-day cubes<small>cast ${fm(x.p.date)} · due ${fm(addD(x.p.date,x.a))}</small></div><span class="tag ${x.n<=0?"warn":""}">${x.n<0?"Overdue "+(-x.n)+"d":x.n===0?"Due today":"In "+x.n+"d"}</span></div>`;
+  const grp=(t,arr)=>arr.length?`<div style="margin:10px 0 2px;font-weight:600;font-size:13px">${t} (${arr.length})</div>`+arr.map(row).join(""):"";
+  $("dtl").innerHTML=due.length?'<p class="note" style="margin:0 0 4px">Tap a row to enter its result.</p>'+grp("Overdue",due.filter(x=>x.n<0))+grp("Due today",due.filter(x=>x.n===0))+grp("Coming up (7 days)",due.filter(x=>x.n>0)):'<p class="note" style="margin:0">No cube tests due in the next 7 days.</p>';
+  if(!$("dtl").dataset.on){$("dtl").dataset.on=1;$("dtl").onclick=e=>{const r=e.target.closest("[data-due]");if(!r)return;const v=r.dataset.due,i=v.lastIndexOf("|"),k=v.slice(0,i),age=v.slice(i+1);go("testing");setTimeout(()=>{const xb=$("xb"),xa=$("xa");if(xb&&xa){xb.value=k;xa.value=age;if(xb.onchange)xb.onchange()}},0)}}};
  hooks.dashboard=draw;document.addEventListener("visibilitychange",()=>{if(!document.hidden)draw()});draw()}
 const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
 const crc32=u=>{let c=-1;for(let i=0;i<u.length;i++)c=crcT[(c^u[i])&255]^(c>>>8);return(c^-1)>>>0};
@@ -671,15 +680,49 @@ function go(k){
 nav.addEventListener("click",e=>{const b=e.target.closest("button");if(b)go(b.dataset.k)});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g)go(g.dataset.go)});
 document.querySelectorAll("[data-go]").forEach(b=>b.insertAdjacentHTML("afterbegin",I[b.dataset.go]));
+function initPhotos(){
+ const sec=document.getElementById("casting");if(!sec)return;
+ const card=document.createElement("div");card.className="card";
+ card.innerHTML='<h3 style="margin:0 0 8px">Site photos</h3><div class="f" style="margin-top:0"><label class="span2">Pour<select id="phb"></select></label></div><label class="btn" style="display:block;cursor:pointer;text-align:center;margin-top:10px">Take or add photo<input id="phf" type="file" accept="image/*" multiple style="display:none"></label><p id="phm" class="note"></p><div id="phg" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>';
+ sec.appendChild(card);
+ const $=i=>document.getElementById(i);const urls={};
+ const show=async()=>{const k=$("phb").value,L=ld("qaqc_photos").filter(x=>x.p===cur()&&x.pr===k);
+  if(!L.length){$("phg").innerHTML='<p class="note" style="grid-column:1/-1;margin:0">No photos for this pour yet.</p>';return}
+  const need=L.filter(x=>!urls[x.path]);
+  if(need.length){try{const {data}=await SB.storage.from("photos").createSignedUrls(need.map(x=>x.path),3600);(data||[]).forEach(d=>{if(d.signedUrl)urls[d.path]=d.signedUrl})}catch(e){}}
+  $("phg").innerHTML=L.slice().reverse().map(x=>'<div style="position:relative"><a href="'+(urls[x.path]||"#")+'" target="_blank" rel="noopener"><img src="'+(urls[x.path]||"")+'" alt="Site photo" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#e6edf5"></a><button data-del="'+x.id+'" aria-label="Delete photo" style="position:absolute;top:4px;right:4px;border:0;border-radius:999px;background:rgba(0,0,0,.65);color:#fff;width:24px;height:24px;cursor:pointer">×</button></div>').join("")};
+ const fill=()=>{const o=pours(),keep=$("phb").value;$("phb").innerHTML=o.length?o.map(q=>'<option value="'+esc(q.k)+'"'+(q.k===keep?" selected":"")+'>'+esc(q.loc)+' ('+esc(q.el)+') · '+q.date+'</option>').join(""):'<option value="">No deliveries yet</option>';show()};
+ const shrink=f=>new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(f);im.onload=()=>{const sc=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(),"image/jpeg",.72)};im.onerror=rej;im.src=u});
+ $("phf").onchange=async e=>{const k=$("phb").value,fs=[...e.target.files];e.target.value="";
+  if(!k){$("phm").textContent="Log a delivery first, then add photos to its pour.";return}
+  let n=0;for(const f of fs){$("phm").textContent="Uploading "+(++n)+" of "+fs.length+"…";
+   try{const b=await shrink(f),id="P"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),path=id+".jpg";
+    const {error}=await SB.storage.from("photos").upload(path,b,{contentType:"image/jpeg"});if(error)throw error;
+    const L=ld("qaqc_photos");L.push({id,p:cur(),pr:k,path,t:new Date().toISOString()});sv("qaqc_photos",L)}
+   catch(x){$("phm").textContent="Could not upload. Photos need an internet connection.";return}}
+  $("phm").textContent="Photos saved.";show()};
+ $("phg").onclick=async e=>{const b=e.target.closest("[data-del]");if(!b||!confirm("Delete this photo?"))return;
+  const L=ld("qaqc_photos"),x=L.find(y=>y.id===b.dataset.del);if(!x)return;
+  try{await SB.storage.from("photos").remove([x.path])}catch(er){}
+  sv("qaqc_photos",L.filter(y=>y.id!==x.id));show()};
+ window.reportPhotos=async keys=>{
+  const L=ld("qaqc_photos").filter(x=>x.p===cur()&&keys.includes(x.pr));
+  if(!document.getElementById("rph"))return;
+  if(!L.length){document.getElementById("rph").innerHTML='<p style="margin:0">No photos for this day.</p>';return}
+  const need=L.filter(x=>!urls[x.path]);
+  if(need.length){document.getElementById("rph").innerHTML='<p style="margin:0">Loading photos…</p>';try{const {data}=await SB.storage.from("photos").createSignedUrls(need.map(x=>x.path),3600);(data||[]).forEach(d=>{if(d.signedUrl)urls[d.path]=d.signedUrl})}catch(e){}}
+  const el=document.getElementById("rph");if(!el)return;
+  el.innerHTML=pours().filter(q=>keys.includes(q.k)&&L.some(x=>x.pr===q.k)).map(q=>'<div style="margin:6px 0 2px;font-weight:600;font-size:13px">'+esc(q.loc)+' ('+esc(q.el)+')</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'+L.filter(x=>x.pr===q.k).map(x=>'<img src="'+(urls[x.path]||"")+'" alt="Site photo" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;break-inside:avoid">').join("")+'</div>').join("")||'<p style="margin:0">No photos for this day.</p>'};
+ $("phb").onchange=show;const old=hooks.casting;hooks.casting=()=>{if(old)old();fill()};fill()}
 let started=false;
-function startApp(){if(started)return;started=true;initProjects();initBatch();initCasting();initTesting();initRecords();initReports();initDashboard();initBackup();go("dashboard")}
+function startApp(){if(started)return;started=true;initProjects();initBatch();initCasting();initTesting();initRecords();initReports();initDashboard();initBackup();initPhotos();go("dashboard")}
 async function pull(){
  setSync("Loading…");
- const {data,error}=await SB.from("app_data").select("key,value");
- if(error){setSync("⚠ Could not load online data");return}
+ let data,error;try{({data,error}=await SB.from("app_data").select("key,value"))}catch(e){error=e}
+ if(error){setSync(navigator.onLine?"⚠ Could not load online data":"Offline – using saved data");return}
  const cloud={};(data||[]).forEach(r=>cloud[r.key]=r.value);
  KEYS.forEach(k=>{
-  if(k in cloud){try{localStorage.setItem(k,JSON.stringify(cloud[k]))}catch(e){}}
+  if(dg().includes(k)){push(k,ld(k))}else if(k in cloud){try{localStorage.setItem(k,JSON.stringify(cloud[k]))}catch(e){}}
   else{const l=ld(k);if(l.length)push(k,l)}
  });
  setSync("✓ Synced");
@@ -698,7 +741,20 @@ document.getElementById("lpw").addEventListener("keydown",e=>{if(e.key==="Enter"
 document.getElementById("lout").onclick=async()=>{await SB.auth.signOut();location.reload()};
 const EYE_ON=`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>`,EYE_OFF=`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.9 10.9 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M1 1l22 22"/></svg>`;
 document.getElementById("eye").onclick=()=>{const i=document.getElementById("lpw"),b=document.getElementById("eye"),show=i.type==="password";i.type=show?"text":"password";b.innerHTML=show?EYE_OFF:EYE_ON;b.classList.toggle("on",show);b.setAttribute("aria-label",show?"Hide password":"Show password");i.focus()};
+document.getElementById("lfp").onclick=async e=>{e.preventDefault();const err=document.getElementById("lerr"),em=document.getElementById("lem").value.trim();err.style.color="";
+ if(!em){err.textContent="Type your email above first.";return}
+ try{const {error}=await SB.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
+  if(error)throw error;err.style.color="#0B7A3E";err.textContent="If that email has an account, a reset link is on its way."}
+ catch(x){err.textContent="Could not send the reset email. Try again in a few minutes."}};
+SB.auth.onAuthStateChange(ev=>{if(ev==="PASSWORD_RECOVERY")document.getElementById("rec").style.display="flex"});
+document.getElementById("rgo").onclick=async()=>{const e=document.getElementById("rerr"),v=document.getElementById("rp1").value;
+ if(v.length<8){e.textContent="Use at least 8 characters.";return}
+ const {error}=await SB.auth.updateUser({password:v});
+ if(error){e.textContent="Could not save. Open the reset link again.";return}
+ document.getElementById("rec").style.display="none";history.replaceState(null,"",location.pathname)};
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 SB.auth.getSession().then(({data})=>{if(data.session)enter(data.session)});
 </script>
+<div id="rec"><div class="box"><div style="text-align:center"><h2 style="margin:0;color:var(--primary);font-size:20px">Set a new password</h2></div><label>New password<input id="rp1" type="password" autocomplete="new-password"></label><p class="err" id="rerr"></p><button class="btn" id="rgo" style="width:100%;text-align:center">Save password</button></div></div>
 </body>
 </html>
