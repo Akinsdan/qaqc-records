@@ -740,8 +740,14 @@ function initMixes(){
  $("qmsv").onclick=()=>{const nm=$("qmx").value.trim(),e=$("qmm");if(!nm){e.textContent="Type a mix reference first.";return}
   const m={n:nm,fc:n("qfc"),c:n("qc"),w:n("qw"),g:n("qg"),h:n("qg2"),s:n("qs"),a:n("qa"),wc:n("qmw")};
   getM();const i=M.findIndex(x=>x.n===nm);if(i>=0)M[i]=m;else M.push(m);sv("qaqc_mixes",M);fill(nm);e.textContent='Saved "'+nm+'".'};
+ let undo=null;
  $("qmdl").onclick=()=>{const nm=$("qmd").value,e=$("qmm");if(!nm||!confirm('Delete mix design "'+nm+'"?'))return;
-  getM();M=M.filter(x=>x.n!==nm);sv("qaqc_mixes",M);fill();load();e.textContent='Deleted "'+nm+'".'};
+  getM();const i=M.findIndex(x=>x.n===nm);if(i<0)return;undo={m:M[i],i};
+  M=M.filter(x=>x.n!==nm);sv("qaqc_mixes",M);fill();load();
+  e.innerHTML='Deleted "'+esc(nm)+'". <button class="btn alt" id="qmun" style="padding:4px 12px;font-size:12px;text-align:center">Undo</button>'};
+ $("qmm").onclick=ev=>{if(!ev.target.closest("#qmun")||!undo)return;getM();
+  if(!M.some(x=>x.n===undo.m.n))M.splice(Math.min(undo.i,M.length),0,undo.m);
+  sv("qaqc_mixes",M);fill(undo.m.n);load();$("qmm").textContent='Restored "'+undo.m.n+'".';undo=null};
  if($("xb"))$("xb").addEventListener("change",()=>{if($("xsv").dataset.edit)return;const k=$("xb").value,p=pours().find(x=>x.k===k),m=p&&mixFor(p.ds[0].gr);if(m){$("xs").value=m.fc;$("xs").dispatchEvent(new Event("input",{bubbles:true}))}});
  let auto="";const grade=()=>{const b=ld("qaqc_batches").find(x=>x.no===$("cb").value);if(b&&b.mx&&(!$("cg").value||$("cg").value===auto)){$("cg").value=b.mx;auto=b.mx}};
  if($("cb")){$("cb").addEventListener("change",grade);const old=hooks.casting;hooks.casting=()=>{if(old)old();grade()}}
