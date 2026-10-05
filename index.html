@@ -317,9 +317,10 @@ const I={
 const inp=(id,l,v,x="")=>`<label${x}>${l}<input id="${id}" type="number" step="any" inputmode="decimal" value="${v}"></label>`;
 const BH=`<div class="mh">${I.batching}<div><h2>Batching plant</h2><p class="lead">Approved mix, batch targets and batch tickets.</p></div></div>
 <div class="card"><h3>Approved mix (per m³)</h3><div class="f">
-<label class="span2">Mix reference<input id="qmx" value="MX-30-A"></label>
-${inp("qc","Cement (kg)",380)}${inp("qw","Water (L)",175)}${inp("qs","Sand (kg)",700)}${inp("qg","Coarse aggregate (kg)",1100)}${inp("qa","Admixture (kg)",3)}${inp("qmw","Max w/c",0.5)}
-</div></div>
+<label class="span2">Mix design<select id="qmd"></select></label>
+<label class="span2">Mix reference<input id="qmx"></label>
+${inp("qc","Cement (kg)",340)}${inp("qw","Water (L)",173)}${inp("qg","20mm aggregate (kg)",748)}${inp("qg2","10mm aggregate (kg)",313)}${inp("qs","Sand (kg)",850)}${inp("qa","Admixture (kg)",2.38)}${inp("qmw","Max w/c",0.51)}${inp("qfc","Specified strength (MPa)",30)}
+</div><p id="qmi" class="note"></p><div style="display:flex;gap:8px;margin-top:8px"><button class="btn alt" id="qmsv" style="flex:1;text-align:center">Save mix design</button><button class="btn alt" id="qmdl" style="flex:1;text-align:center">Delete mix design</button></div><p id="qmm" class="note"></p></div>
 <div class="card" style="margin-top:12px"><h3>New batch</h3><div class="f">
 ${inp("qv","Volume (m³)",6)}<label>Truck no.<input id="qtk" placeholder="TM-07"></label><label>Departure time<input id="qdpt" type="time"></label>
 <label class="span2">Driver's name<input id="qdr" placeholder="Full name"></label>
@@ -332,16 +333,16 @@ ${inp("qms","Sand moisture (%)",3)}${inp("qmc","Coarse moisture (%)",1)}
 <h2>Batch log</h2><div class="card" style="overflow-x:auto" id="qlg"></div>`;
 function initBatch(){
  const $=i=>document.getElementById(i),n=i=>parseFloat($(i).value)||0;
- const mats=[["Cement","c"],["Water","w"],["Sand","s"],["Coarse","g"],["Admixture","a"]],tol={c:1,w:1,s:2,g:2,a:3};
+ const mats=[["Cement","c"],["Water","w"],["20mm","g"],["10mm","h"],["Sand","s"],["Admixture","a"]],tol={c:1,w:1,s:2,g:2,h:2,a:3};
  const esc=s=>String(s??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  $("qb").innerHTML=mats.map(m=>`<tr><td>${m[0]}</td><td id="t_${m[1]}"></td><td><input type="number" step="any" inputmode="decimal" data-a="${m[1]}" aria-label="Actual ${m[0]}"></td><td id="d_${m[1]}"></td></tr>`).join("");
  const A=k=>parseFloat(document.querySelector(`[data-a=${k}]`).value);
  let L=[],pend=null,editNo=null,bn=0;try{L=JSON.parse(localStorage.getItem("qaqc_batches")||"[]");bn=+localStorage.getItem("qaqc_bn")||0}catch(e){}
  function calc(){
-  const V=n("qv"),ms=n("qms"),mc=n("qmc"),T={c:n("qc")*V,s:n("qs")*V*(1+ms/100),g:n("qg")*V*(1+mc/100),w:(n("qw")-n("qs")*ms/100-n("qg")*mc/100)*V,a:n("qa")*V};
-  let all=true,ok=true;for(const m of mats){const k=m[1],d=$("d_"+k),x=A(k);$("t_"+k).textContent=T[k].toFixed(1);if(isNaN(x)||!T[k]){all=false;d.textContent="–";d.style.color="";continue}const p=(x-T[k])/T[k]*100,g=Math.abs(p)<=tol[k];if(!g)ok=false;d.textContent=(p>0?"+":"")+p.toFixed(1)+"% "+(g?"OK":"Out");d.style.color=g?"var(--ok)":"var(--warn)"}
-  const mw=n("qmw");let t="Design w/c "+(n("qw")/(n("qc")||1)).toFixed(2)+" (max "+mw.toFixed(2)+")",ew=null;if([A("c"),A("w"),A("s"),A("g")].every(x=>x>0)){ew=(A("w")+A("s")*ms/(100+ms)+A("g")*mc/(100+mc))/A("c");t+=" · Actual w/c "+ew.toFixed(2)+(ew<=mw?" OK":" over max")}$("qwc").textContent=t;return{all,ok:ok&&(ew===null||ew<=mw),ew}}
- function clearForm(){document.querySelectorAll("[data-a]").forEach(i=>i.value="");["qtk","qdr","qdpt"].forEach(i=>$(i).value="");$("qmx").value="";$("qsv").textContent="Save batch";delete $("qsv").dataset.edit;editNo=null;$("qe").textContent="";calc()}
+  const V=n("qv"),ms=n("qms"),mc=n("qmc"),T={c:n("qc")*V,s:n("qs")*V*(1+ms/100),g:n("qg")*V*(1+mc/100),h:n("qg2")*V*(1+mc/100),w:(n("qw")-n("qs")*ms/100-(n("qg")+n("qg2"))*mc/100)*V,a:n("qa")*V};
+  let all=true,ok=true;for(const m of mats){const k=m[1],d=$("d_"+k),x=A(k);$("t_"+k).textContent=T[k].toFixed(1);if(!T[k]){d.textContent="–";d.style.color="";continue}if(isNaN(x)){all=false;d.textContent="–";d.style.color="";continue}const p=(x-T[k])/T[k]*100,g=Math.abs(p)<=tol[k];if(!g)ok=false;d.textContent=(p>0?"+":"")+p.toFixed(1)+"% "+(g?"OK":"Out");d.style.color=g?"var(--ok)":"var(--warn)"}
+  const mw=n("qmw");let t="Design w/c "+(n("qw")/(n("qc")||1)).toFixed(2)+" (max "+mw.toFixed(2)+")",ew=null;if(["c","w","s","g","h"].filter(k=>T[k]>0).every(k=>A(k)>0)){ew=(A("w")+A("s")*ms/(100+ms)+((A("g")||0)+(A("h")||0))*mc/(100+mc))/A("c");t+=" · Actual w/c "+ew.toFixed(2)+(ew<=mw?" OK":" over max")}$("qwc").textContent=t;return{all,ok:ok&&(ew===null||ew<=mw),ew}}
+ function clearForm(){document.querySelectorAll("[data-a]").forEach(i=>i.value="");["qtk","qdr","qdpt"].forEach(i=>$(i).value="");$("qmx").value=window.mixName?window.mixName():"";$("qsv").textContent="Save batch";delete $("qsv").dataset.edit;editNo=null;$("qe").textContent="";calc()}
  function loadEdit(no){const r=ld("qaqc_batches").find(x=>x.no===no);if(!r)return;editNo=no;$("qtk").value=r.tk||"";$("qdr").value=r.dr||"";$("qdpt").value=r.dp||"";$("qmx").value=r.mx||"";$("qv").value=r.v||"";$("qsv").textContent="Update batch";$("qsv").dataset.edit=no;$("qe").textContent="Editing "+no+" — update the fields and save.";document.getElementById("batching").scrollIntoView({behavior:"smooth",block:"start"})}
  function draw(){L=ld("qaqc_batches");const V=L.filter(r=>(isAll()||(r.p||"")===cur()));$("qlg").innerHTML=V.length?`<table class="t"><thead><tr><th>Batch</th><th>Truck</th><th>Driver</th><th>m³</th><th>Departure</th><th>w/c</th><th>Result</th><th></th></tr></thead><tbody>`+V.slice().reverse().map(r=>`<tr><td>${r.no}</td><td>${esc(r.tk)}</td><td>${esc(r.dr)}</td><td>${r.v}</td><td>${r.dp||"–"}</td><td>${r.ew||"–"}</td><td style="color:${r.st==="Pass"?"var(--ok)":r.st==="Check"?"var(--warn)":"var(--muted)"}">${r.st}</td><td style="display:flex;gap:4px"><button class="btn alt" data-edit-batch="${r.no}" style="padding:4px 10px;font-size:12px">Edit</button><button class="btn alt" data-x="${r.no}" style="padding:4px 10px;font-size:12px">${pend===r.no?"Confirm delete":"Delete"}</button></td></tr>`).join("")+"</tbody></table>"+abtn(pend):'<p class="note" style="margin:0">No batches yet. Save a batch ticket and it appears here.</p>'}
  redraws.push(draw);$("qlg").onclick=e=>{const eb=e.target.closest("[data-edit-batch]");if(eb){loadEdit(eb.dataset.editBatch);return}const b=e.target.closest("button"),k=b&&b.dataset.x;if(!k)return;if(pend!==k){pend=k;draw();return}L=k==="all"?[]:L.filter(r=>r.no!==k);pend=null;sv("qaqc_batches",L);draw()};
@@ -352,7 +353,7 @@ function initBatch(){
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ld=k=>{try{return JSON.parse(localStorage.getItem(k)||"[]")}catch(e){return[]}};
 const SB=window.supabase.createClient("https://ygcnynnchgqmfwvmlxjz.supabase.co","sb_publishable_oQw1qef_Bqo59AmVN58iIA_KZSOho64",{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage}});
-const KEYS=["qaqc_projects","qaqc_batches","qaqc_deliveries","qaqc_tests","qaqc_photos"];
+const KEYS=["qaqc_projects","qaqc_batches","qaqc_deliveries","qaqc_tests","qaqc_photos","qaqc_mixes"];
 const setSync=t=>{const e=document.getElementById("syncs");if(e)e.textContent=t};
 const pushT={};
 const dg=()=>{try{return JSON.parse(localStorage.getItem("qaqc_dirty")||"[]")}catch(e){return[]}},ds=a=>{try{localStorage.setItem("qaqc_dirty",JSON.stringify(a))}catch(e){}};
@@ -364,7 +365,7 @@ const rfAll=()=>{redraws.forEach(f=>f());Object.values(hooks).forEach(f=>f())};
 const sel=(id,l,o,x="")=>`<label${x}>${l}<select id="${id}">${o}</select></label>`;
 const txt=(id,l,x="",v="")=>`<label${x}>${l}<input id="${id}" value="${v}"></label>`;
 const head=(k,t,d)=>`<div class="mh">${I[k]}<div><h2>${t}</h2><p class="lead">${d}</p></div></div>`;
-const CH=head("casting","Casting on site","Log each truck delivered and placed, linked to its batch.")+`<div class="card"><div class="f" style="margin-top:0">`+sel("cb","Batch and truck","",' class="span2"')+txt("cl","Pour location",' class="span2"')+sel("ce","Element",["Slab","Beam","Column","Wall","Foundation","Other"].map(x=>`<option>${x}</option>`).join(""))+txt("cg","Grade","","C30/37")+inp("cv","Volume (m³)","")+`<label>Arrival time<input id="cr" type="time"></label>`+inp("cs","Slump (mm)","")+inp("ct","Concrete temp (°C)","")+`</div><p id="cm" class="note" style="color:var(--warn)"></p><button class="btn" id="csv" style="width:100%">Save delivery</button></div><h2>Casting log</h2><div class="card" style="overflow-x:auto" id="clg"></div>`;
+const CH=head("casting","Casting on site","Log each truck delivered and placed, linked to its batch.")+`<div class="card"><div class="f" style="margin-top:0">`+sel("cb","Batch and truck","",' class="span2"')+txt("cl","Pour location",' class="span2"')+sel("ce","Element",["Slab","Beam","Column","Wall","Foundation","Other"].map(x=>`<option>${x}</option>`).join(""))+txt("cg","Grade","","")+inp("cv","Volume (m³)","")+`<label>Arrival time<input id="cr" type="time"></label>`+inp("cs","Slump (mm)","")+inp("ct","Concrete temp (°C)","")+`</div><p id="cm" class="note" style="color:var(--warn)"></p><button class="btn" id="csv" style="width:100%">Save delivery</button></div><h2>Casting log</h2><div class="card" style="overflow-x:auto" id="clg"></div>`;
 const TH=head("testing","Testing","Cube results for each pour: 6 cubes per pour location, tested at 7, 14 and 28 days.")+`<div class="card"><div class="f" style="margin-top:0">`+sel("xb","Pour (location)","",' class="span2"')+sel("xa","Age (days)",["7","14","28"].map(x=>`<option>${x}</option>`).join(""))+inp("xs","Specified strength (MPa)",37)+`</div><p id="xd" class="note"></p><p style="font-size:12px;color:var(--muted);margin:10px 0 4px">Cube strengths (MPa)</p><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">`+[1,2,3,4,5,6].map(i=>`<input class="xc" type="number" step="any" inputmode="decimal" aria-label="Cube ${i}" placeholder="Cube ${i}">`).join("")+`</div><p id="xr" class="note"></p><p id="xm" class="note" style="color:var(--warn);margin-top:4px"></p><button class="btn" id="xsv" style="width:100%">Save test result</button></div><h2>Test log</h2><div class="card" style="overflow-x:auto" id="xlg"></div>`;
 const PH=head("projects","Projects","Set up each job. The project chosen at the top is saved with every batch, delivery and test.")+`<div class="card"><div class="f" style="margin-top:0">`+txt("pn","Project name",' class="span2"')+txt("pc","Client")+txt("pl","Location")+txt("pg","Specified grades (e.g. C30/37, C35/45)",' class="span2"')+txt("pt","Team (engineers, inspectors)",' class="span2"')+txt("pr","Strength acceptance rule (optional)",' class="span2"')+`</div><p id="pm" class="note" style="color:var(--warn)"></p><button class="btn" id="psv" style="width:100%">Save project</button></div><h2>Project list</h2><div class="card" style="overflow-x:auto" id="plg"></div>`;
 const cur=()=>{const v=document.getElementById("proj").value;return v==="No project yet"?"":v};
@@ -390,7 +391,7 @@ function initTesting(){
  const used=k=>L.filter(r=>testKey(r)===k).reduce((s,r)=>s+r.v.length,0);
  const info=()=>{const p=pours().find(x=>x.k===$("xb").value);$("xd").textContent=p?"Cubes tested: "+used(p.k)+" of 6 · Due: "+[7,14,28].map(d=>d+"-day "+new Date(+new Date(p.date+"T12:00")+d*864e5).toLocaleDateString(undefined,{day:"numeric",month:"short"})).join(" · "):""};
  const calc=()=>{const v=vals(),sp=parseFloat($("xs").value)||0;if(!v.length){$("xr").textContent="";return}const m=v.reduce((a,c)=>a+c,0)/v.length;$("xr").textContent="Mean "+m.toFixed(1)+" MPa"+(sp?" · "+(m/sp*100).toFixed(0)+"% of specified":"")};
- const reset=()=>{$("xa").value="7";$("xs").value="37";document.querySelectorAll(".xc").forEach(i=>i.value="");$("xsv").textContent="Save test result";delete $("xsv").dataset.edit;$("xm").textContent="";calc()};
+ const reset=()=>{$("xa").value="7";$("xs").value=(window.mixSpec?window.mixSpec():37);document.querySelectorAll(".xc").forEach(i=>i.value="");$("xsv").textContent="Save test result";delete $("xsv").dataset.edit;$("xm").textContent="";calc()};
  const loadEdit=no=>{const r=ld("qaqc_tests").find(x=>x.no===no);if(!r)return;$("xb").value=testKey(r);$("xa").value=String(r.age);$("xs").value=r.sp||"";document.querySelectorAll(".xc").forEach((i,k)=>i.value=r.v[k]??"");$("xsv").textContent="Update test result";$("xsv").dataset.edit=no;$("xm").textContent="Editing "+no+" — update the fields and save.";info();calc();document.getElementById("testing").scrollIntoView({behavior:"smooth",block:"start"})};
  hooks.testing=()=>{const o=pours(),keep=$("xb").value;$("xb").innerHTML=o.length?o.map(r=>`<option value="${esc(r.k)}"${r.k===keep?" selected":""}>${esc(r.loc)} (${esc(r.el)}) · ${r.date}</option>`).join(""):'<option value="">No deliveries yet. Log one in Casting.</option>';info()};
  const bt='style="padding:4px 10px;font-size:12px"';
@@ -724,8 +725,29 @@ function initPhotos(){
   const el=document.getElementById("rph");if(!el)return;
   el.innerHTML=pours().filter(q=>keys.includes(q.k)&&L.some(x=>x.pr===q.k)).map(q=>'<div class="pcap" style="margin:6px 0 2px;font-weight:600;font-size:13px">'+esc(q.loc)+' ('+esc(q.el)+')</div><div class="pgrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'+L.filter(x=>x.pr===q.k).map(x=>'<img src="'+(urls[x.path]||"")+'" alt="Site photo" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;break-inside:avoid">').join("")+'</div>').join("")||'<p style="margin:0">No photos for this day.</p>'};window.reportPhotos=k=>(window.rpPromise=runRP(k));
  $("phb").onchange=show;const old=hooks.casting;hooks.casting=()=>{if(old)old();fill()};fill()}
+function initMixes(){
+ const $=i=>document.getElementById(i),n=i=>parseFloat($(i).value)||0;
+ const SEED=[["C25 20mm",25,330,175,750,315,850,2.31,.53],["C30 20mm",30,340,173,748,313,850,2.38,.51],["C35 20mm",35,380,170,743,305,835,2.66,.45],["C35 CFA",35,420,179,0,989,835,2.94,.43]].map(a=>({n:a[0],fc:a[1],c:a[2],w:a[3],g:a[4],h:a[5],s:a[6],a:a[7],wc:a[8]}));
+ const F={c:"qc",w:"qw",g:"qg",h:"qg2",s:"qs",a:"qa",wc:"qmw",fc:"qfc"};
+ let M;const getM=()=>{M=ld("qaqc_mixes");if(!M.length){M=SEED.slice();sv("qaqc_mixes",M)}return M};
+ const fill=keep=>{getM();$("qmd").innerHTML=M.map(m=>"<option>"+esc(m.n)+"</option>").join("");if(keep&&M.some(m=>m.n===keep))$("qmd").value=keep};
+ const info=()=>{const c=n("qc"),g=n("qg"),h=n("qg2"),sd=n("qs"),v=c/3.05+n("qw")+g/2.7+h/2.7+sd/2.65+n("qa")/1.09;$("qmi").textContent="Volume "+v.toFixed(1)+" L · Coarse/sand "+(sd?((g+h)/sd).toFixed(2):"–")+" · W/C "+(c?(n("qw")/c).toFixed(2):"–")+" · Admixture "+(c?(n("qa")/c*100).toFixed(1):"–")+"%"};
+ const load=()=>{const m=getM().find(x=>x.n===$("qmd").value);if(!m)return;for(const k in F)$(F[k]).value=m[k];$("qmx").value=m.n;$("qc").dispatchEvent(new Event("input",{bubbles:true}));info()};
+ window.mixName=()=>$("qmd").value;
+ window.mixFor=g=>{g=(g||"").trim().toLowerCase();if(!g)return null;getM();return M.find(m=>m.n.toLowerCase()===g)||M.find(m=>m.n.toLowerCase().startsWith(g))||null};
+ window.mixSpec=()=>{const k=$("xb")&&$("xb").value,p=k&&pours().find(x=>x.k===k),m=p&&mixFor(p.ds[0].gr);return m?m.fc:37};
+ $("qmd").onchange=load;$("batching").addEventListener("input",info);
+ $("qmsv").onclick=()=>{const nm=$("qmx").value.trim(),e=$("qmm");if(!nm){e.textContent="Type a mix reference first.";return}
+  const m={n:nm,fc:n("qfc"),c:n("qc"),w:n("qw"),g:n("qg"),h:n("qg2"),s:n("qs"),a:n("qa"),wc:n("qmw")};
+  getM();const i=M.findIndex(x=>x.n===nm);if(i>=0)M[i]=m;else M.push(m);sv("qaqc_mixes",M);fill(nm);e.textContent='Saved "'+nm+'".'};
+ $("qmdl").onclick=()=>{const nm=$("qmd").value,e=$("qmm");if(!nm||!confirm('Delete mix design "'+nm+'"?'))return;
+  getM();M=M.filter(x=>x.n!==nm);sv("qaqc_mixes",M);fill();load();e.textContent='Deleted "'+nm+'".'};
+ if($("xb"))$("xb").addEventListener("change",()=>{if($("xsv").dataset.edit)return;const k=$("xb").value,p=pours().find(x=>x.k===k),m=p&&mixFor(p.ds[0].gr);if(m){$("xs").value=m.fc;$("xs").dispatchEvent(new Event("input",{bubbles:true}))}});
+ let auto="";const grade=()=>{const b=ld("qaqc_batches").find(x=>x.no===$("cb").value);if(b&&b.mx&&(!$("cg").value||$("cg").value===auto)){$("cg").value=b.mx;auto=b.mx}};
+ if($("cb")){$("cb").addEventListener("change",grade);const old=hooks.casting;hooks.casting=()=>{if(old)old();grade()}}
+ fill();load()}
 let started=false;
-function startApp(){if(started)return;started=true;initProjects();initBatch();initCasting();initTesting();initRecords();initReports();initDashboard();initBackup();initPhotos();go("dashboard")}
+function startApp(){if(started)return;started=true;initProjects();initBatch();initCasting();initTesting();initRecords();initReports();initDashboard();initBackup();initPhotos();initMixes();go("dashboard")}
 async function pull(){
  setSync("Loading…");
  let data,error;try{({data,error}=await SB.from("app_data").select("key,value"))}catch(e){error=e}
