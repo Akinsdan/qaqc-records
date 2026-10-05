@@ -320,7 +320,7 @@ const BH=`<div class="mh">${I.batching}<div><h2>Batching plant</h2><p class="lea
 <label class="span2">Mix design<select id="qmd"></select></label>
 <label class="span2">Mix reference<input id="qmx"></label>
 ${inp("qc","Cement (kg)",340)}${inp("qw","Water (L)",173)}${inp("qg","20mm aggregate (kg)",748)}${inp("qg2","10mm aggregate (kg)",313)}${inp("qs","Sand (kg)",850)}${inp("qa","Admixture (kg)",2.38)}${inp("qmw","Max w/c",0.51)}${inp("qfc","Specified strength (MPa)",30)}
-</div><p id="qmi" class="note"></p><div style="display:flex;gap:8px;margin-top:8px"><button class="btn alt" id="qmsv" style="flex:1;text-align:center">Save mix design</button><button class="btn alt" id="qmdl" style="flex:1;text-align:center">Delete mix design</button></div><p id="qmm" class="note"></p></div>
+</div><p id="qmi" class="note"></p><div style="display:flex;gap:8px;margin-top:8px"><button class="btn alt" id="qmsv" style="flex:1;text-align:center">Save mix design</button><button class="btn alt" id="qmdl" style="flex:1;text-align:center">Delete mix design</button></div><button class="btn alt" id="qmrs" style="width:100%;margin-top:8px;text-align:center">Restore company mixes</button><p id="qmm" class="note"></p></div>
 <div class="card" style="margin-top:12px"><h3>New batch</h3><div class="f">
 ${inp("qv","Volume (m³)",6)}<label>Truck no.<input id="qtk" placeholder="TM-07"></label><label>Departure time<input id="qdpt" type="time"></label>
 <label class="span2">Driver's name<input id="qdr" placeholder="Full name"></label>
@@ -745,6 +745,9 @@ function initMixes(){
   getM();const i=M.findIndex(x=>x.n===nm);if(i<0)return;undo={m:M[i],i};
   M=M.filter(x=>x.n!==nm);sv("qaqc_mixes",M);fill();load();
   e.innerHTML='Deleted "'+esc(nm)+'". <button class="btn alt" id="qmun" style="padding:4px 12px;font-size:12px;text-align:center">Undo</button>'};
+ $("qmrs").onclick=()=>{getM();const e=$("qmm"),miss=SEED.filter(x=>!M.some(m=>m.n===x.n));
+  if(!miss.length){e.textContent="All four company mixes are already in the list.";return}
+  M=M.concat(miss);sv("qaqc_mixes",M);fill($("qmd").value);e.textContent="Restored: "+miss.map(x=>x.n).join(", ")+"."};
  $("qmm").onclick=ev=>{if(!ev.target.closest("#qmun")||!undo)return;getM();
   if(!M.some(x=>x.n===undo.m.n))M.splice(Math.min(undo.i,M.length),0,undo.m);
   sv("qaqc_mixes",M);fill(undo.m.n);load();$("qmm").textContent='Restored "'+undo.m.n+'".';undo=null};
